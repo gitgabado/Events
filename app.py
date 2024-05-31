@@ -6,8 +6,15 @@ from io import StringIO
 import time
 import os
 import tempfile
+import json
 
 st.title("Event Location Planner")
+
+st.subheader("Plan your events efficiently with optimal locations 🌍🎉")
+st.markdown("""
+This tool helps you to find the best locations for your events based on travel time, cost, and emissions. 
+Upload a CSV file with attendee postcodes, configure your cost and emission parameters, and get the top location recommendations for hosting your event.
+""")
 
 # Sidebar for settings and inputs
 st.sidebar.header("Settings")
@@ -246,6 +253,25 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
     These recommendations are intended to provide an optimized selection of event locations based on travel costs, emissions, and times. Please adjust the input values and consider other factors as needed for your specific event planning needs.
     """)
 
+# Initialize the usage count file
+usage_count_file = "/tmp/usage_count.json"
+
+# Function to load usage data
+def load_usage_data():
+    if os.path.exists(usage_count_file):
+        with open(usage_count_file, "r") as f:
+            return json.load(f)
+    else:
+        return {"usage_count": 0, "total_attendees": 0}
+
+# Function to save usage data
+def save_usage_data(data):
+    with open(usage_count_file, "w") as f:
+        json.dump(data, f)
+
+# Load current usage data
+usage_data = load_usage_data()
+
 if st.button("Generate Recommendations"):
     if not api_key:
         st.error("Please enter your Google API Key in the settings.")
@@ -258,3 +284,14 @@ if st.button("Generate Recommendations"):
         
         st.subheader("Top 3 Recommended Locations")
         display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type)
+
+        # Update and save usage data
+        usage_data["usage_count"] += 1
+        usage_data["total_attendees"] += num_attendees
+        save_usage_data(usage_data)
+
+# Display cumulative usage data in the footer
+st.sidebar.markdown("---")
+st.sidebar.subheader("Usage Statistics")
+st.sidebar.markdown(f"**Total Events Planned:** {usage_data['usage_count']}")
+st.sidebar.markdown(f"**Total Attendees Processed:** {usage_data['total_attendees']}")
