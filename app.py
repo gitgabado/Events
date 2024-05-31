@@ -137,13 +137,23 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
             distance = distances[origin][location]
             time = times[origin][location]
             
+            if distance == float('inf') or time == float('inf'):
+                st.error(f"Error calculating distance or time for origin {origin} to destination {location} with mode {travel_mode}")
+                continue
+
             total_cost += distance * cost_per_km
             total_emissions += distance * emission_per_km
             total_time += time
         
-        avg_cost_per_attendee = total_cost / num_attendees
-        avg_emissions_per_attendee = total_emissions / num_attendees
-        avg_time_per_attendee = total_time / num_attendees
+        if num_attendees == 0:
+            avg_cost_per_attendee = 0
+            avg_emissions_per_attendee = 0
+            avg_time_per_attendee = 0
+        else:
+            avg_cost_per_attendee = total_cost / num_attendees
+            avg_emissions_per_attendee = total_emissions / num_attendees
+            avg_time_per_attendee = total_time / num_attendees
+        
         total_time_hours, total_time_minutes = divmod(total_time, 60)
         
         results.append({
@@ -192,7 +202,7 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
     with tempfile.TemporaryDirectory() as temp_dir:
         fig, ax = plt.subplots()
         ax.bar(locations, costs, color='blue', label=budget_cost_label)
-        ax.axhline(y=budget_cost if budget_type == "Total" else budget_cost * num_attendees, color='red', linestyle='--', label=f'Budgeted {budget_cost_label}')
+        ax.axhline(y=budget_cost if budget_type == "Total" else budget_cost, color='red', linestyle='--', label=f'Budgeted {budget_cost_label}')
         ax.set_ylabel(budget_cost_label)
         ax.set_title(f'{budget_cost_label} vs Budget')
         ax.legend()
@@ -203,7 +213,7 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
 
         fig, ax = plt.subplots()
         ax.bar(locations, emissions, color='green', label=budget_emissions_label)
-        ax.axhline(y=budget_emissions if budget_type == "Total" else budget_emissions * num_attendees, color='red', linestyle='--', label=f'Budgeted {budget_emissions_label}')
+        ax.axhline(y=budget_emissions if budget_type == "Total" else budget_emissions, color='red', linestyle='--', label=f'Budgeted {budget_emissions_label}')
         ax.set_ylabel(budget_emissions_label)
         ax.set_title(f'{budget_emissions_label} vs Budget')
         ax.legend()
@@ -214,7 +224,7 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
 
         fig, ax = plt.subplots()
         ax.bar(locations, times, color='purple', label=budget_time_label)
-        ax.axhline(y=budget_time if budget_type == "Total" else budget_time * num_attendees, color='red', linestyle='--', label=f'Budgeted {budget_time_label}')
+        ax.axhline(y=budget_time if budget_type == "Total" else budget_time, color='red', linestyle='--', label=f'Budgeted {budget_time_label}')
         ax.set_ylabel(budget_time_label)
         ax.set_title(f'{budget_time_label} vs Budget')
         ax.legend()
