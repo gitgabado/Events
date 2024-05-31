@@ -1,10 +1,3 @@
-The issue arises because the travel mode "plane" is not supported by the Google Maps API. Instead of using "plane" mode, we can use "driving" as a proxy but we need to adjust the cost and emissions accordingly. Let's update the script to handle this correctly and only use valid travel modes.
-
-### Updated `app.py`
-
-Here’s the revised script to ensure only valid travel modes are used, and the costs and emissions are adjusted correctly:
-
-```python
 import streamlit as st
 import pandas as pd
 import googlemaps
@@ -38,8 +31,6 @@ cost_per_km_car = st.sidebar.number_input("Cost per km by Car ($)", value=0.5)
 emission_per_km_car = st.sidebar.number_input("Emissions per km by Car (kg CO2)", value=0.2)
 cost_per_km_train = st.sidebar.number_input("Cost per km by Train ($)", value=0.3)
 emission_per_km_train = st.sidebar.number_input("Emissions per km by Train (kg CO2)", value=0.1)
-cost_per_km_plane = st.sidebar.number_input("Cost per km by Plane ($)", value=1.0)
-emission_per_km_plane = st.sidebar.number_input("Emissions per km by Plane (kg CO2)", value=0.5)
 
 # Potential Base Locations Input
 st.sidebar.subheader("Potential Base Locations")
@@ -102,7 +93,7 @@ def choose_travel_mode(api_key, origin, destination, cost_per_km_car, emission_p
     train_time = train_times[origin][destination]
 
     if car_time == float('inf') and train_time == float('inf'):
-        return 'plane'
+        return 'train'  # Default to train if both are unavailable
     if car_time == float('inf'):
         return 'train'
     if train_time == float('inf'):
@@ -112,7 +103,7 @@ def choose_travel_mode(api_key, origin, destination, cost_per_km_car, emission_p
     return 'train'
 
 # Function to generate recommendations
-def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train, cost_per_km_plane, emission_per_km_plane, budget_cost, budget_time, budget_emissions, budget_type):
+def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train, budget_cost, budget_time, budget_emissions, budget_type):
     origins = df['postcode'].tolist()
     valid_origins = [validate_location(api_key, origin) for origin in origins]
     valid_origins = [origin for origin in valid_origins if origin is not None]
@@ -129,11 +120,7 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
         total_time = 0
         for origin in valid_origins:
             travel_mode = choose_travel_mode(api_key, origin, location, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train)
-            if travel_mode == 'plane':
-                cost_per_km = cost_per_km_plane
-                emission_per_km = emission_per_km_plane
-                travel_mode = 'driving'  # Using 'driving' mode to get the distance, will adjust cost and emissions
-            elif travel_mode == 'car':
+            if travel_mode == 'car':
                 cost_per_km = cost_per_km_car
                 emission_per_km = emission_per_km_car
             else:
@@ -182,9 +169,7 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
 
     # Styling the DataFrame for a premium look
     styled_df = df_recommendations.style.set_table_styles(
-        [{'selector': 'th', 'props': [('
-
-font-size', '14pt'), ('text-align', 'center')]},
+        [{'selector': 'th', 'props': [('font-size', '14pt'), ('text-align', 'center')]},
          {'selector': 'td', 'props': [('font-size', '12pt'), ('text-align', 'center')]}]
     ).set_properties(**{
         'background-color': 'white',
@@ -249,16 +234,8 @@ if st.button("Generate Recommendations"):
         st.error("Please upload a CSV file with attendee postcodes.")
     else:
         with st.spinner('Recommendation Engine at work ⏳'):
-            recommendations, num_attendees = generate_recommendations(df, base_locations, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train, cost_per_km_plane, emission_per_km_plane, budget_cost, budget_time, budget_emissions, budget_type)
+            recommendations, num_attendees = generate_recommendations(df, base_locations, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train, budget_cost, budget_time, budget_emissions, budget_type)
             time.sleep(2)  # Simulate processing time
         
         st.subheader("Top 3 Recommended Locations")
         display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type)
-```
-
-### Summary of Changes
-
-1. **Handle Travel Mode "Plane"**: Used 'driving' as a proxy to get distances for plane travel and adjusted costs and emissions accordingly.
-2. **Error Handling**: Ensured the travel mode is valid and handled cases where distance or time calculations might fail.
-
-Deploy this updated script to your Streamlit application via GitHub to test the new features and improvements.
