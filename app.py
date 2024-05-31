@@ -203,5 +203,3 @@ if st.button("Generate Recommendations"):
             }
             pdf_output = generate_pdf(report_data, [chart1_path, chart2_path, chart3_path])
             st.success(f"Report generated successfully! [Download Report]({pdf_output})")
-
-
