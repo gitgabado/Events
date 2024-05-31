@@ -137,7 +137,7 @@ def generate_pdf(report_data, charts):
         pdf.add_page()
         pdf.image(chart, x=10, y=20, w=180)
     
-    pdf_output = "/mnt/data/event_location_report.pdf"
+    pdf_output = os.path.join(tempfile.gettempdir(), "event_location_report.pdf")
     pdf.output(pdf_output)
     return pdf_output
 
@@ -215,4 +215,11 @@ if st.button("Generate Recommendations"):
                     "recommendations": recommendations
                 }
                 pdf_output = generate_pdf(report_data, [chart1_path, chart2_path, chart3_path])
-                st.success(f"Report generated successfully! [Download Report]({pdf_output})")
+                with open(pdf_output, "rb") as file:
+                    st.download_button(
+                        label="Download Report 📄",
+                        data=file,
+                        file_name="event_location_report.pdf",
+                        mime="application/pdf"
+                    )
+                st.success("Report generated successfully!")
