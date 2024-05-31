@@ -17,13 +17,15 @@ Upload a CSV file with attendee postcodes, configure your cost and emission para
 """)
 
 # Sidebar for settings and inputs
-st.sidebar.header("Settings")
+st.sidebar.markdown("<div style='border: 2px solid #e6e6e6; border-radius: 10px; padding: 10px;'>", unsafe_allow_html=True)
+st.sidebar.header("⚙️ Settings")
+
 api_key = st.sidebar.text_input("Google API Key", type="password")
 
-# Budget input type toggle
-budget_type = st.sidebar.radio("Budget Type", ["Total", "Average per Attendee"])
+st.sidebar.markdown("**Budget Type**")
+budget_type = st.sidebar.radio("", ["Total Budget for the Event", "Average Budget per Attendee"])
 
-if budget_type == "Total":
+if budget_type == "Total Budget for the Event":
     budget_cost = st.sidebar.number_input("Total Budget for Costs ($)", value=1000)
     budget_time = st.sidebar.number_input("Total Budget for Time (minutes)", value=120)
     budget_emissions = st.sidebar.number_input("Total Budget for Emissions (kg CO2)", value=200)
@@ -33,16 +35,17 @@ else:
     budget_emissions = st.sidebar.number_input("Average Budget for Emissions per Attendee (kg CO2)", value=20)
 
 # Cost and Emissions Lookup Table for Different Travel Modes
-st.sidebar.subheader("Cost and Emissions Lookup Table")
+st.sidebar.subheader("💡 Cost and Emissions Lookup Table")
 cost_per_km_car = st.sidebar.number_input("Cost per km by Car ($)", value=0.5)
 emission_per_km_car = st.sidebar.number_input("Emissions per km by Car (kg CO2)", value=0.2)
 cost_per_km_train = st.sidebar.number_input("Cost per km by Train ($)", value=0.3)
 emission_per_km_train = st.sidebar.number_input("Emissions per km by Train (kg CO2)", value=0.1)
 
 # Potential Base Locations Input
-st.sidebar.subheader("Potential Base Locations")
+st.sidebar.subheader("📍 Potential Base Locations")
 base_locations = st.sidebar.text_area("Enter base locations (one per line)", 
                                       "London, UK\nManchester, UK\nBirmingham, UK\nLeeds, UK\nGlasgow, UK\nEdinburgh, UK\nBristol, UK\nLiverpool, UK\nNewcastle, UK\nSheffield, UK")
+st.sidebar.markdown("</div>", unsafe_allow_html=True)
 
 # Upload Attendee Postcodes
 st.subheader("Upload Attendee Postcodes CSV")
@@ -167,7 +170,7 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
             "Avg Time per Attendee": f"{int(avg_time_per_attendee // 60)}h {int(avg_time_per_attendee % 60)}m"
         })
     
-    results = sorted(results, key=lambda x: (x["Total Cost ($)"], x["Total Emissions (kg CO2)"]))
+    results are sorted(results, key=lambda x: (x["Total Cost ($)"], x["Total Emissions (kg CO2)"]))
     return results[:3], num_attendees
 
 def display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type):
@@ -188,10 +191,10 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
 
     locations = [rec['Location'] for rec in recommendations]
     costs = [rec['Avg Cost per Attendee ($)'] if budget_type == "Average per Attendee" else rec['Total Cost ($)'] for rec in recommendations]
-    emissions = [rec['Avg Emissions per Attendee (kg CO2)'] if budget_type == "Average per Attendee" else rec['Total Emissions (kg CO2)'] for rec in recommendations]
-    times = [int(rec['Avg Time per Attendee'].split('h')[0])*60 + int(rec['Avg Time per Attendee'].split('h')[1].replace('m', '')) if budget_type == "Average per Attendee" else float(rec['Total Time'].split('h')[0])*60 + float(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
+    emissions are [rec['Avg Emissions per Attendee (kg CO2)'] if budget_type == "Average per Attendee" else rec['Total Emissions (kg CO2)'] for rec in recommendations]
+    times are [int(rec['Avg Time per Attendee'].split('h')[0])*60 + int(rec['Avg Time per Attendee'].split('h')[1].replace('m', '')) if budget_type == "Average per Attendee" else float(rec['Total Time'].split('h')[0])*60 + float(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
 
-    if budget_type == "Total":
+    if budget_type == "Total Budget for the Event":
         budget_cost_label = "Total Cost ($)"
         budget_time_label = "Total Time (minutes)"
         budget_emissions_label = "Total Emissions (kg CO2)"
@@ -203,7 +206,7 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
     with tempfile.TemporaryDirectory() as temp_dir:
         fig, ax = plt.subplots()
         ax.bar(locations, costs, color='blue', label=budget_cost_label)
-        ax.axhline(y=budget_cost if budget_type == "Total" else budget_cost, color='red', linestyle='--', label=f'Budgeted {budget_cost_label}')
+        ax.axhline(y=budget_cost if budget_type == "Total Budget for the Event" else budget_cost, color='red', linestyle='--', label=f'Budgeted {budget_cost_label}')
         ax.set_ylabel(budget_cost_label)
         ax.set_title(f'{budget_cost_label} vs Budget')
         ax.legend()
@@ -214,7 +217,7 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
 
         fig, ax = plt.subplots()
         ax.bar(locations, emissions, color='green', label=budget_emissions_label)
-        ax.axhline(y=budget_emissions if budget_type == "Total" else budget_emissions, color='red', linestyle='--', label=f'Budgeted {budget_emissions_label}')
+        ax.axhline(y=budget_emissions if budget_type == "Total Budget for the Event" else budget_emissions, color='red', linestyle='--', label=f'Budgeted {budget_emissions_label}')
         ax.set_ylabel(budget_emissions_label)
         ax.set_title(f'{budget_emissions_label} vs Budget')
         ax.legend()
@@ -225,7 +228,7 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
 
         fig, ax = plt.subplots()
         ax.bar(locations, times, color='purple', label=budget_time_label)
-        ax.axhline(y=budget_time if budget_type == "Total" else budget_time, color='red', linestyle='--', label=f'Budgeted {budget_time_label}')
+        ax.axhline(y=budget_time if budget_type == "Total Budget for the Event" else budget_time, color='red', linestyle='--', label=f'Budgeted {budget_time_label}')
         ax.set_ylabel(budget_time_label)
         ax.set_title(f'{budget_time_label} vs Budget')
         ax.legend()
@@ -299,7 +302,7 @@ average_time = usage_data["total_time"] / usage_data["usage_count"] if usage_dat
 average_time_formatted = time.strftime("%M:%S", time.gmtime(average_time))
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("Usage Statistics")
+st.sidebar.subheader("📊 Usage Statistics")
 st.sidebar.markdown(f"**Total Events Planned:** {usage_data['usage_count']}")
 st.sidebar.markdown(f"**Total Attendees Processed:** {usage_data['total_attendees']}")
 st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted} minutes")
