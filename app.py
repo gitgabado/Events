@@ -9,7 +9,9 @@ st.title("Event Location Planner")
 # Sidebar for settings and inputs
 st.sidebar.header("Settings")
 api_key = st.sidebar.text_input("Google API Key", type="password")
-budget = st.sidebar.number_input("Budget ($)", value=1000)
+budget_cost = st.sidebar.number_input("Budget for Costs ($)", value=1000)
+budget_time = st.sidebar.number_input("Budget for Time (minutes)", value=120)
+budget_emissions = st.sidebar.number_input("Budget for Emissions (kg CO2)", value=200)
 
 # Lookup Table for Cost and Emissions
 st.sidebar.subheader("Cost and Emissions Lookup Table")
@@ -49,23 +51,29 @@ def validate_location(api_key, location):
 def calculate_distances(api_key, origins, destinations):
     gmaps = googlemaps.Client(key=api_key)
     distances = {}
+    times = {}
     for origin in origins:
         distances[origin] = {}
+        times[origin] = {}
         for destination in destinations:
             try:
                 result = gmaps.directions(origin, destination, mode="driving")
                 if result and result[0]['legs']:
                     distance = result[0]['legs'][0]['distance']['value'] / 1000  # in km
+                    time = result[0]['legs'][0]['duration']['value'] / 60  # in minutes
                     distances[origin][destination] = distance
+                    times[origin][destination] = time
                 else:
                     distances[origin][destination] = float('inf')
+                    times[origin][destination] = float('inf')
             except Exception as e:
                 st.error(f"Error calculating distance from {origin} to {destination}: {e}")
                 distances[origin][destination] = float('inf')
-    return distances
+                times[origin][destination] = float('inf')
+    return distances, times
 
 # Function to generate recommendations
-def generate_recommendations(df, base_locations, cost_per_km, emission_per_km, budget):
+def generate_recommendations(df, base_locations, cost_per_km, emission_per_km, budget_cost, budget_time, budget_emissions):
     origins = df['postcode'].tolist()
     valid_origins = [validate_location(api_key, origin) for origin in origins]
     valid_origins = [origin for origin in valid_origins if origin is not None]
@@ -74,18 +82,20 @@ def generate_recommendations(df, base_locations, cost_per_km, emission_per_km, b
     valid_destinations = [validate_location(api_key, destination) for destination in destinations]
     valid_destinations = [destination for destination in valid_destinations if destination is not None]
     
-    distances = calculate_distances(api_key, valid_origins, valid_destinations)
+    distances, times = calculate_distances(api_key, valid_origins, valid_destinations)
     
     results = []
     for location in valid_destinations:
         total_cost = sum([distances[origin][location] * cost_per_km for origin in valid_origins])
         total_emissions = sum([distances[origin][location] * emission_per_km for origin in valid_origins])
+        total_time = sum([times[origin][location] for origin in valid_origins])
         avg_cost_per_attendee = total_cost / len(valid_origins)
         
         results.append({
             "Location": location,
             "Total Cost": total_cost,
             "Total Emissions": total_emissions,
+            "Total Time": total_time,
             "Avg Cost per Attendee": avg_cost_per_attendee
         })
     
@@ -98,23 +108,25 @@ if st.button("Generate Recommendations"):
     elif not uploaded_file:
         st.error("Please upload a CSV file with attendee postcodes.")
     else:
-        recommendations = generate_recommendations(df, base_locations, cost_per_km, emission_per_km, budget)
+        recommendations = generate_recommendations(df, base_locations, cost_per_km, emission_per_km, budget_cost, budget_time, budget_emissions)
         st.subheader("Top 3 Recommended Locations")
         
         for idx, rec in enumerate(recommendations, 1):
             st.markdown(f"**{idx}. {rec['Location']}**")
             st.write(f"Total Cost: ${rec['Total Cost']:.2f}")
             st.write(f"Total Emissions: {rec['Total Emissions']:.2f} kg CO2")
+            st.write(f"Total Time: {rec['Total Time']:.2f} minutes")
             st.write(f"Avg Cost per Attendee: ${rec['Avg Cost per Attendee']:.2f}")
 
         # Visualization
         locations = [rec['Location'] for rec in recommendations]
         costs = [rec['Total Cost'] for rec in recommendations]
         emissions = [rec['Total Emissions'] for rec in recommendations]
+        times = [rec['Total Time'] for rec in recommendations]
         
         fig, ax = plt.subplots()
         ax.bar(locations, costs, color='blue', label='Total Cost')
-        ax.axhline(y=budget, color='red', linestyle='--', label='Budget')
+        ax.axhline(y=budget_cost, color='red', linestyle='--', label='Cost Budget')
         ax.set_ylabel('Cost ($)')
         ax.set_title('Total Cost vs Budget')
         ax.legend()
@@ -123,8 +135,18 @@ if st.button("Generate Recommendations"):
         
         fig, ax = plt.subplots()
         ax.bar(locations, emissions, color='green', label='Total Emissions')
+        ax.axhline(y=budget_emissions, color='red', linestyle='--', label='Emissions Budget')
         ax.set_ylabel('Emissions (kg CO2)')
-        ax.set_title('Total Emissions by Location')
+        ax.set_title('Total Emissions vs Budget')
+        ax.legend()
+        
+        st.pyplot(fig)
+
+        fig, ax = plt.subplots()
+        ax.bar(locations, times, color='purple', label='Total Time')
+        ax.axhline(y=budget_time, color='red', linestyle='--', label='Time Budget')
+        ax.set_ylabel('Time (minutes)')
+        ax.set_title('Total Time vs Budget')
         ax.legend()
         
         st.pyplot(fig)
