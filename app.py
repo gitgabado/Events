@@ -135,25 +135,28 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
     st.write(styled_df.to_html(), unsafe_allow_html=True)
 
     locations = [rec['Location'] for rec in recommendations]
-    costs = [rec['Total Cost ($)'] for rec in recommendations]
-    emissions = [rec['Total Emissions (kg CO2)'] for rec in recommendations]
-    times = [float(rec['Total Time'].split('h')[0])*60 + float(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
+    costs = [rec['Avg Cost per Attendee ($)'] if budget_type == "Average per Attendee" else rec['Total Cost ($)'] for rec in recommendations]
+    emissions = [rec['Avg Emissions per Attendee (kg CO2)'] if budget_type == "Average per Attendee" else rec['Total Emissions (kg CO2)'] for rec in recommendations]
+    times = [int(rec['Avg Time per Attendee'].split('h')[0])*60 + int(rec['Avg Time per Attendee'].split('h')[1].replace('m', '')) if budget_type == "Average per Attendee" else float(rec['Total Time'].split('h')[0])*60 + float(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
 
     if budget_type == "Total":
-        budget_cost = budget_cost
-        budget_time = budget_time
-        budget_emissions = budget_emissions
+        budget_cost_label = "Total Cost ($)"
+        budget_time_label = "Total Time (minutes)"
+        budget_emissions_label = "Total Emissions (kg CO2)"
     else:
-        budget_cost = budget_cost * num_attendees
-        budget_time = budget_time * num_attendees
-        budget_emissions = budget_emissions * num_attendees
+        budget_cost_label = "Avg Cost per Attendee ($)"
+        budget_time_label = "Avg Time per Attendee (minutes)"
+        budget_emissions_label = "Avg Emissions per Attendee (kg CO2)"
+        budget_cost *= num_attendees
+        budget_time *= num_attendees
+        budget_emissions *= num_attendees
 
     with tempfile.TemporaryDirectory() as temp_dir:
         fig, ax = plt.subplots()
-        ax.bar(locations, costs, color='blue', label='Total Cost ($)')
-        ax.axhline(y=budget_cost, color='red', linestyle='--', label='Cost Budget ($)')
-        ax.set_ylabel('Cost ($)')
-        ax.set_title('Total Cost vs Budget')
+        ax.bar(locations, costs, color='blue', label=budget_cost_label)
+        ax.axhline(y=budget_cost, color='red', linestyle='--', label=budget_cost_label)
+        ax.set_ylabel(budget_cost_label)
+        ax.set_title(f'{budget_cost_label} vs Budget')
         ax.legend()
         fig.tight_layout()
         chart1_path = os.path.join(temp_dir, "chart1.png")
@@ -161,10 +164,10 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
         st.pyplot(fig)
 
         fig, ax = plt.subplots()
-        ax.bar(locations, emissions, color='green', label='Total Emissions (kg CO2)')
-        ax.axhline(y=budget_emissions, color='red', linestyle='--', label='Emissions Budget (kg CO2)')
-        ax.set_ylabel('Emissions (kg CO2)')
-        ax.set_title('Total Emissions vs Budget')
+        ax.bar(locations, emissions, color='green', label=budget_emissions_label)
+        ax.axhline(y=budget_emissions, color='red', linestyle='--', label=budget_emissions_label)
+        ax.set_ylabel(budget_emissions_label)
+        ax.set_title(f'{budget_emissions_label} vs Budget')
         ax.legend()
         fig.tight_layout()
         chart2_path = os.path.join(temp_dir, "chart2.png")
@@ -172,10 +175,10 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
         st.pyplot(fig)
 
         fig, ax = plt.subplots()
-        ax.bar(locations, times, color='purple', label='Total Time (minutes)')
-        ax.axhline(y=budget_time, color='red', linestyle='--', label='Time Budget (minutes)')
-        ax.set_ylabel('Time (minutes)')
-        ax.set_title('Total Time vs Budget')
+        ax.bar(locations, times, color='purple', label=budget_time_label)
+        ax.axhline(y=budget_time, color='red', linestyle='--', label=budget_time_label)
+        ax.set_ylabel(budget_time_label)
+        ax.set_title(f'{budget_time_label} vs Budget')
         ax.legend()
         fig.tight_layout()
         chart3_path = os.path.join(temp_dir, "chart3.png")
