@@ -29,14 +29,17 @@ if uploaded_file:
     df = pd.read_csv(uploaded_file)
     st.write("Attendee Postcodes:", df)
 
-# Function to validate locations
+# Function to validate and format locations
 def validate_location(api_key, location):
     gmaps = googlemaps.Client(key=api_key)
     try:
         result = gmaps.geocode(location)
         if result:
-            return result[0]['formatted_address']
+            formatted_address = result[0]['formatted_address']
+            st.write(f"Validated location: {formatted_address}")
+            return formatted_address
         else:
+            st.write(f"Location not found: {location}")
             return None
     except Exception as e:
         st.error(f"Error validating location {location}: {e}")
@@ -47,43 +50,37 @@ def calculate_distances(api_key, origins, destinations):
     gmaps = googlemaps.Client(key=api_key)
     distances = {}
     for origin in origins:
-        valid_origin = validate_location(api_key, origin)
-        if not valid_origin:
-            st.error(f"Invalid origin: {origin}")
-            continue
         distances[origin] = []
         for destination in destinations:
-            valid_destination = validate_location(api_key, destination)
-            if not valid_destination:
-                st.error(f"Invalid destination: {destination}")
-                distances[origin].append(float('inf'))
-                continue
             try:
-                result = gmaps.directions(valid_origin, valid_destination, mode="driving")
+                result = gmaps.directions(origin, destination, mode="driving")
                 if result and result[0]['legs']:
                     distance = result[0]['legs'][0]['distance']['value'] / 1000  # in km
                     distances[origin].append(distance)
                 else:
                     distances[origin].append(float('inf'))
             except Exception as e:
-                st.error(f"Error calculating distance from {valid_origin} to {valid_destination}: {e}")
+                st.error(f"Error calculating distance from {origin} to {destination}: {e}")
                 distances[origin].append(float('inf'))
     return distances
 
 # Function to generate recommendations
 def generate_recommendations(df, base_locations, cost_per_km, emission_per_km, budget):
     origins = df['postcode'].tolist()
-    destinations = base_locations.split('\n')
+    valid_origins = [validate_location(api_key, origin) for origin in origins]
+    valid_origins = [origin for origin in valid_origins if origin is not None]
     
-    distances = calculate_distances(api_key, origins, destinations)
+    destinations = base_locations.split('\n')
+    valid_destinations = [validate_location(api_key, destination) for destination in destinations]
+    valid_destinations = [destination for destination in valid_destinations if destination is not None]
+    
+    distances = calculate_distances(api_key, valid_origins, valid_destinations)
     
     results = []
-    for location in destinations:
-        if location not in distances:
-            continue
+    for location in valid_destinations:
         total_cost = sum([dist * cost_per_km for dist in distances[location]])
         total_emissions = sum([dist * emission_per_km for dist in distances[location]])
-        avg_cost_per_attendee = total_cost / len(origins)
+        avg_cost_per_attendee = total_cost / len(valid_origins)
         
         results.append({
             "Location": location,
