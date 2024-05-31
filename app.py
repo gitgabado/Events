@@ -12,9 +12,18 @@ st.title("Event Location Planner")
 # Sidebar for settings and inputs
 st.sidebar.header("Settings")
 api_key = st.sidebar.text_input("Google API Key", type="password")
-budget_cost = st.sidebar.number_input("Budget for Costs ($)", value=1000)
-budget_time = st.sidebar.number_input("Budget for Time (minutes)", value=120)
-budget_emissions = st.sidebar.number_input("Budget for Emissions (kg CO2)", value=200)
+
+# Budget input type toggle
+budget_type = st.sidebar.radio("Budget Type", ["Total", "Average per Attendee"])
+
+if budget_type == "Total":
+    budget_cost = st.sidebar.number_input("Total Budget for Costs ($)", value=1000)
+    budget_time = st.sidebar.number_input("Total Budget for Time (minutes)", value=120)
+    budget_emissions = st.sidebar.number_input("Total Budget for Emissions (kg CO2)", value=200)
+else:
+    budget_cost = st.sidebar.number_input("Average Budget for Costs per Attendee ($)", value=100)
+    budget_time = st.sidebar.number_input("Average Budget for Time per Attendee (minutes)", value=15)
+    budget_emissions = st.sidebar.number_input("Average Budget for Emissions per Attendee (kg CO2)", value=20)
 
 # Lookup Table for Cost and Emissions
 st.sidebar.subheader("Cost and Emissions Lookup Table")
@@ -74,10 +83,11 @@ def calculate_distances(api_key, origins, destinations):
     return distances, times
 
 # Function to generate recommendations
-def generate_recommendations(df, base_locations, cost_per_km, emission_per_km, budget_cost, budget_time, budget_emissions):
+def generate_recommendations(df, base_locations, cost_per_km, emission_per_km, budget_cost, budget_time, budget_emissions, budget_type):
     origins = df['postcode'].tolist()
     valid_origins = [validate_location(api_key, origin) for origin in origins]
     valid_origins = [origin for origin in valid_origins if origin is not None]
+    num_attendees = len(valid_origins)
     
     destinations = base_locations.split('\n')
     valid_destinations = [validate_location(api_key, destination) for destination in destinations]
@@ -90,25 +100,25 @@ def generate_recommendations(df, base_locations, cost_per_km, emission_per_km, b
         total_cost = sum([distances[origin][location] * cost_per_km for origin in valid_origins])
         total_emissions = sum([distances[origin][location] * emission_per_km for origin in valid_origins])
         total_time = sum([times[origin][location] for origin in valid_origins])
-        avg_cost_per_attendee = total_cost / len(valid_origins)
-        avg_emissions_per_attendee = total_emissions / len(valid_origins)
-        avg_time_per_attendee = total_time / len(valid_origins)
+        avg_cost_per_attendee = total_cost / num_attendees
+        avg_emissions_per_attendee = total_emissions / num_attendees
+        avg_time_per_attendee = total_time / num_attendees
         total_time_hours, total_time_minutes = divmod(total_time, 60)
         
         results.append({
             "Location": location,
-            "Total Cost ($)": total_cost,
-            "Total Emissions (kg CO2)": total_emissions,
+            "Total Cost ($)": int(total_cost),
+            "Total Emissions (kg CO2)": int(total_emissions),
             "Total Time": f"{int(total_time_hours)}h {int(total_time_minutes)}m",
-            "Avg Cost per Attendee ($)": avg_cost_per_attendee,
-            "Avg Emissions per Attendee (kg CO2)": avg_emissions_per_attendee,
+            "Avg Cost per Attendee ($)": int(avg_cost_per_attendee),
+            "Avg Emissions per Attendee (kg CO2)": int(avg_emissions_per_attendee),
             "Avg Time per Attendee": f"{int(avg_time_per_attendee // 60)}h {int(avg_time_per_attendee % 60)}m"
         })
     
     results = sorted(results, key=lambda x: (x["Total Cost ($)"], x["Total Emissions (kg CO2)"]))
-    return results[:3]
+    return results[:3], num_attendees
 
-def display_recommendations_and_charts(recommendations, budget_cost, budget_time, budget_emissions):
+def display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type):
     df_recommendations = pd.DataFrame(recommendations)
     df_recommendations.index = df_recommendations.index + 1  # Make index start from 1
 
@@ -128,6 +138,15 @@ def display_recommendations_and_charts(recommendations, budget_cost, budget_time
     costs = [rec['Total Cost ($)'] for rec in recommendations]
     emissions = [rec['Total Emissions (kg CO2)'] for rec in recommendations]
     times = [float(rec['Total Time'].split('h')[0])*60 + float(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
+
+    if budget_type == "Total":
+        budget_cost = budget_cost
+        budget_time = budget_time
+        budget_emissions = budget_emissions
+    else:
+        budget_cost = budget_cost * num_attendees
+        budget_time = budget_time * num_attendees
+        budget_emissions = budget_emissions * num_attendees
 
     with tempfile.TemporaryDirectory() as temp_dir:
         fig, ax = plt.subplots()
@@ -170,8 +189,8 @@ if st.button("Generate Recommendations"):
         st.error("Please upload a CSV file with attendee postcodes.")
     else:
         with st.spinner('Recommendation Engine at work ⏳'):
-            recommendations = generate_recommendations(df, base_locations, cost_per_km, emission_per_km, budget_cost, budget_time, budget_emissions)
+            recommendations, num_attendees = generate_recommendations(df, base_locations, cost_per_km, emission_per_km, budget_cost, budget_time, budget_emissions, budget_type)
             time.sleep(2)  # Simulate processing time
         
         st.subheader("Top 3 Recommended Locations")
-        display_recommendations_and_charts(recommendations, budget_cost, budget_time, budget_emissions)
+        display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type)
