@@ -170,7 +170,7 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
             "Avg Time per Attendee": f"{int(avg_time_per_attendee // 60)}h {int(avg_time_per_attendee % 60)}m"
         })
     
-    results are sorted(results, key=lambda x: (x["Total Cost ($)"], x["Total Emissions (kg CO2)"]))
+    results = sorted(results, key=lambda x: (x["Total Cost ($)"], x["Total Emissions (kg CO2)"]))
     return results[:3], num_attendees
 
 def display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type):
@@ -190,9 +190,9 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
     st.write(styled_df.to_html(), unsafe_allow_html=True)
 
     locations = [rec['Location'] for rec in recommendations]
-    costs = [rec['Avg Cost per Attendee ($)'] if budget_type == "Average per Attendee" else rec['Total Cost ($)'] for rec in recommendations]
-    emissions are [rec['Avg Emissions per Attendee (kg CO2)'] if budget_type == "Average per Attendee" else rec['Total Emissions (kg CO2)'] for rec in recommendations]
-    times are [int(rec['Avg Time per Attendee'].split('h')[0])*60 + int(rec['Avg Time per Attendee'].split('h')[1].replace('m', '')) if budget_type == "Average per Attendee" else float(rec['Total Time'].split('h')[0])*60 + float(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
+    costs = [rec['Avg Cost per Attendee ($)'] if budget_type == "Average Budget per Attendee" else rec['Total Cost ($)'] for rec in recommendations]
+    emissions = [rec['Avg Emissions per Attendee (kg CO2)'] if budget_type == "Average Budget per Attendee" else rec['Total Emissions (kg CO2)'] for rec in recommendations]
+    times = [int(rec['Avg Time per Attendee'].split('h')[0])*60 + int(rec['Avg Time per Attendee'].split('h')[1].replace('m', '')) if budget_type == "Average Budget per Attendee" else float(rec['Total Time'].split('h')[0])*60 + float(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
 
     if budget_type == "Total Budget for the Event":
         budget_cost_label = "Total Cost ($)"
@@ -206,7 +206,7 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
     with tempfile.TemporaryDirectory() as temp_dir:
         fig, ax = plt.subplots()
         ax.bar(locations, costs, color='blue', label=budget_cost_label)
-        ax.axhline(y=budget_cost if budget_type == "Total Budget for the Event" else budget_cost, color='red', linestyle='--', label=f'Budgeted {budget_cost_label}')
+        ax.axhline(y=budget_cost, color='red', linestyle='--', label=f'Budgeted {budget_cost_label}')
         ax.set_ylabel(budget_cost_label)
         ax.set_title(f'{budget_cost_label} vs Budget')
         ax.legend()
@@ -217,7 +217,7 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
 
         fig, ax = plt.subplots()
         ax.bar(locations, emissions, color='green', label=budget_emissions_label)
-        ax.axhline(y=budget_emissions if budget_type == "Total Budget for the Event" else budget_emissions, color='red', linestyle='--', label=f'Budgeted {budget_emissions_label}')
+        ax.axhline(y=budget_emissions, color='red', linestyle='--', label=f'Budgeted {budget_emissions_label}')
         ax.set_ylabel(budget_emissions_label)
         ax.set_title(f'{budget_emissions_label} vs Budget')
         ax.legend()
@@ -228,7 +228,7 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
 
         fig, ax = plt.subplots()
         ax.bar(locations, times, color='purple', label=budget_time_label)
-        ax.axhline(y=budget_time if budget_type == "Total Budget for the Event" else budget_time, color='red', linestyle='--', label=f'Budgeted {budget_time_label}')
+        ax.axhline(y=budget_time, color='red', linestyle='--', label=f'Budgeted {budget_time_label}')
         ax.set_ylabel(budget_time_label)
         ax.set_title(f'{budget_time_label} vs Budget')
         ax.legend()
