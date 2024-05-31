@@ -227,6 +227,25 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
         fig.savefig(chart3_path)
         st.pyplot(fig)
 
+    # Summary of calculations and assumptions
+    st.subheader("Summary of Recommendations Calculation")
+    st.markdown("""
+    ### How Recommendations are Calculated:
+    1. **Validation of Locations**: All input locations (attendee postcodes and potential event locations) are validated using the Google Maps API to ensure they are correctly formatted and can be geocoded.
+    2. **Distance and Time Calculation**: The Google Maps API is used to calculate the travel distances and times between each attendee's postcode and each potential event location. Both car and train travel modes are considered.
+    3. **Travel Mode Selection**: The default travel mode is train. If the train travel time is more than 1.5 times the car travel time, car travel is selected instead.
+    4. **Cost and Emissions Calculation**: Based on the selected travel mode, the total travel cost and emissions are calculated using the provided cost and emissions per km values. Average costs and emissions per attendee are also calculated.
+    5. **Recommendation Ranking**: The potential event locations are ranked based on total cost and emissions, with the top three locations being recommended.
+
+    ### Assumptions Made:
+    - **Travel Mode**: Train is the default travel mode. Car travel is considered only if it significantly reduces travel time (less than 1.5 times the train travel time).
+    - **Cost and Emissions Values**: The cost and emissions per km for car and train travel are user-provided estimates and may not reflect actual values.
+    - **Distance and Time Calculations**: The distances and times calculated using the Google Maps API are assumed to be accurate representations of real-world travel.
+    - **Budget Considerations**: The budget can be entered as either a total amount or an average per attendee, and the recommendations and charts are adjusted accordingly.
+
+    These recommendations are intended to provide an optimized selection of event locations based on travel costs, emissions, and times. Please adjust the input values and consider other factors as needed for your specific event planning needs.
+    """)
+
 if st.button("Generate Recommendations"):
     if not api_key:
         st.error("Please enter your Google API Key in the settings.")
