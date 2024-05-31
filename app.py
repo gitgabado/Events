@@ -22,7 +22,7 @@ st.sidebar.header("⚙️ Settings")
 
 api_key = st.sidebar.text_input("Google API Key", type="password")
 
-st.sidebar.markdown("**Budget Type**")
+st.sidebar.markdown("<div style='margin-bottom: -10px;'>**💸 Budget**</div>", unsafe_allow_html=True)
 budget_type = st.sidebar.radio("", ["Total Budget for the Event", "Average Budget per Attendee"])
 
 if budget_type == "Total Budget for the Event":
