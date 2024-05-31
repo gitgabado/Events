@@ -6,6 +6,7 @@ from io import StringIO
 import time
 from fpdf import FPDF
 import os
+import tempfile
 
 st.title("Event Location Planner")
 
@@ -161,63 +162,57 @@ if st.button("Generate Recommendations"):
         emissions = [rec['Total Emissions'] for rec in recommendations]
         times = [float(rec['Total Time'].split('h')[0])*60 + float(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
 
-        # Create directory if it doesn't exist
-        charts_dir = "/mnt/data/charts/"
-        try:
-            if not os.path.exists(charts_dir):
-                os.makedirs(charts_dir)
-        except OSError as e:
-            st.error(f"Error creating directory: {e}")
-        
-        fig, ax = plt.subplots()
-        ax.bar(locations, costs, color='blue', label='Total Cost')
-        ax.axhline(y=budget_cost, color='red', linestyle='--', label='Cost Budget')
-        ax.set_ylabel('Cost ($)')
-        ax.set_title('Total Cost vs Budget')
-        ax.legend()
-        fig.tight_layout()
-        
-        chart1_path = os.path.join(charts_dir, "chart1.png")
-        try:
-            fig.savefig(chart1_path)
-        except Exception as e:
-            st.error(f"Error saving chart: {e}")
-        st.pyplot(fig)
+        # Use temporary directory for charts
+        with tempfile.TemporaryDirectory() as temp_dir:
+            fig, ax = plt.subplots()
+            ax.bar(locations, costs, color='blue', label='Total Cost')
+            ax.axhline(y=budget_cost, color='red', linestyle='--', label='Cost Budget')
+            ax.set_ylabel('Cost ($)')
+            ax.set_title('Total Cost vs Budget')
+            ax.legend()
+            fig.tight_layout()
+            
+            chart1_path = os.path.join(temp_dir, "chart1.png")
+            try:
+                fig.savefig(chart1_path)
+            except Exception as e:
+                st.error(f"Error saving chart: {e}")
+            st.pyplot(fig)
 
-        fig, ax = plt.subplots()
-        ax.bar(locations, emissions, color='green', label='Total Emissions')
-        ax.axhline(y=budget_emissions, color='red', linestyle='--', label='Emissions Budget')
-        ax.set_ylabel('Emissions (kg CO2)')
-        ax.set_title('Total Emissions vs Budget')
-        ax.legend()
-        fig.tight_layout()
-        
-        chart2_path = os.path.join(charts_dir, "chart2.png")
-        try:
-            fig.savefig(chart2_path)
-        except Exception as e:
-            st.error(f"Error saving chart: {e}")
-        st.pyplot(fig)
+            fig, ax = plt.subplots()
+            ax.bar(locations, emissions, color='green', label='Total Emissions')
+            ax.axhline(y=budget_emissions, color='red', linestyle='--', label='Emissions Budget')
+            ax.set_ylabel('Emissions (kg CO2)')
+            ax.set_title('Total Emissions vs Budget')
+            ax.legend()
+            fig.tight_layout()
+            
+            chart2_path = os.path.join(temp_dir, "chart2.png")
+            try:
+                fig.savefig(chart2_path)
+            except Exception as e:
+                st.error(f"Error saving chart: {e}")
+            st.pyplot(fig)
 
-        fig, ax = plt.subplots()
-        ax.bar(locations, times, color='purple', label='Total Time')
-        ax.axhline(y=budget_time, color='red', linestyle='--', label='Time Budget')
-        ax.set_ylabel('Time (minutes)')
-        ax.set_title('Total Time vs Budget')
-        ax.legend()
-        fig.tight_layout()
-        
-        chart3_path = os.path.join(charts_dir, "chart3.png")
-        try:
-            fig.savefig(chart3_path)
-        except Exception as e:
-            st.error(f"Error saving chart: {e}")
-        st.pyplot(fig)
-        
-        if st.button("Download Report 📄"):
-            report_data = {
-                "origins": df['postcode'].tolist(),
-                "recommendations": recommendations
-            }
-            pdf_output = generate_pdf(report_data, [chart1_path, chart2_path, chart3_path])
-            st.success(f"Report generated successfully! [Download Report]({pdf_output})")
+            fig, ax = plt.subplots()
+            ax.bar(locations, times, color='purple', label='Total Time')
+            ax.axhline(y=budget_time, color='red', linestyle='--', label='Time Budget')
+            ax.set_ylabel('Time (minutes)')
+            ax.set_title('Total Time vs Budget')
+            ax.legend()
+            fig.tight_layout()
+            
+            chart3_path = os.path.join(temp_dir, "chart3.png")
+            try:
+                fig.savefig(chart3_path)
+            except Exception as e:
+                st.error(f"Error saving chart: {e}")
+            st.pyplot(fig)
+            
+            if st.button("Download Report 📄"):
+                report_data = {
+                    "origins": df['postcode'].tolist(),
+                    "recommendations": recommendations
+                }
+                pdf_output = generate_pdf(report_data, [chart1_path, chart2_path, chart3_path])
+                st.success(f"Report generated successfully! [Download Report]({pdf_output})")
