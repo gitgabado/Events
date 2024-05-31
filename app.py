@@ -163,8 +163,11 @@ if st.button("Generate Recommendations"):
 
         # Create directory if it doesn't exist
         charts_dir = "/mnt/data/charts/"
-        if not os.path.exists(charts_dir):
-            os.makedirs(charts_dir)
+        try:
+            if not os.path.exists(charts_dir):
+                os.makedirs(charts_dir)
+        except OSError as e:
+            st.error(f"Error creating directory: {e}")
         
         fig, ax = plt.subplots()
         ax.bar(locations, costs, color='blue', label='Total Cost')
@@ -175,7 +178,10 @@ if st.button("Generate Recommendations"):
         fig.tight_layout()
         
         chart1_path = os.path.join(charts_dir, "chart1.png")
-        fig.savefig(chart1_path)
+        try:
+            fig.savefig(chart1_path)
+        except Exception as e:
+            st.error(f"Error saving chart: {e}")
         st.pyplot(fig)
 
         fig, ax = plt.subplots()
@@ -187,7 +193,10 @@ if st.button("Generate Recommendations"):
         fig.tight_layout()
         
         chart2_path = os.path.join(charts_dir, "chart2.png")
-        fig.savefig(chart2_path)
+        try:
+            fig.savefig(chart2_path)
+        except Exception as e:
+            st.error(f"Error saving chart: {e}")
         st.pyplot(fig)
 
         fig, ax = plt.subplots()
@@ -199,7 +208,10 @@ if st.button("Generate Recommendations"):
         fig.tight_layout()
         
         chart3_path = os.path.join(charts_dir, "chart3.png")
-        fig.savefig(chart3_path)
+        try:
+            fig.savefig(chart3_path)
+        except Exception as e:
+            st.error(f"Error saving chart: {e}")
         st.pyplot(fig)
         
         if st.button("Download Report 📄"):
