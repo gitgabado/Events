@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from io import StringIO
 import time
 from fpdf import FPDF
+import os
 
 st.title("Event Location Planner")
 
@@ -159,6 +160,11 @@ if st.button("Generate Recommendations"):
         costs = [rec['Total Cost'] for rec in recommendations]
         emissions = [rec['Total Emissions'] for rec in recommendations]
         times = [float(rec['Total Time'].split('h')[0])*60 + float(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
+
+        # Create directory if it doesn't exist
+        charts_dir = "/mnt/data/charts/"
+        if not os.path.exists(charts_dir):
+            os.makedirs(charts_dir)
         
         fig, ax = plt.subplots()
         ax.bar(locations, costs, color='blue', label='Total Cost')
@@ -168,7 +174,7 @@ if st.button("Generate Recommendations"):
         ax.legend()
         fig.tight_layout()
         
-        chart1_path = "/mnt/data/chart1.png"
+        chart1_path = os.path.join(charts_dir, "chart1.png")
         fig.savefig(chart1_path)
         st.pyplot(fig)
 
@@ -180,7 +186,7 @@ if st.button("Generate Recommendations"):
         ax.legend()
         fig.tight_layout()
         
-        chart2_path = "/mnt/data/chart2.png"
+        chart2_path = os.path.join(charts_dir, "chart2.png")
         fig.savefig(chart2_path)
         st.pyplot(fig)
 
@@ -192,7 +198,7 @@ if st.button("Generate Recommendations"):
         ax.legend()
         fig.tight_layout()
         
-        chart3_path = "/mnt/data/chart3.png"
+        chart3_path = os.path.join(charts_dir, "chart3.png")
         fig.savefig(chart3_path)
         st.pyplot(fig)
         
