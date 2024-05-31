@@ -17,35 +17,33 @@ Upload a CSV file with attendee postcodes, configure your cost and emission para
 """)
 
 # Sidebar for settings and inputs
-st.sidebar.markdown("<div style='border: 2px solid #e6e6e6; border-radius: 10px; padding: 10px;'>", unsafe_allow_html=True)
 st.sidebar.header("⚙️ Settings")
 
 api_key = st.sidebar.text_input("Google API Key", type="password")
 
-st.sidebar.markdown("<div style='margin-bottom: -10px;'>**💸 Budget**</div>", unsafe_allow_html=True)
+st.sidebar.markdown("💸 Budget")
 budget_type = st.sidebar.radio("", ["Total Budget for the Event", "Average Budget per Attendee"])
 
 if budget_type == "Total Budget for the Event":
-    budget_cost = st.sidebar.number_input("Total Budget for Costs ($)", value=1000)
+    budget_cost = st.sidebar.number_input("Total Budget for Costs (£)", value=1000)
     budget_time = st.sidebar.number_input("Total Budget for Time (minutes)", value=120)
     budget_emissions = st.sidebar.number_input("Total Budget for Emissions (kg CO2)", value=200)
 else:
-    budget_cost = st.sidebar.number_input("Average Budget for Costs per Attendee ($)", value=100)
+    budget_cost = st.sidebar.number_input("Average Budget for Costs per Attendee (£)", value=100)
     budget_time = st.sidebar.number_input("Average Budget for Time per Attendee (minutes)", value=15)
     budget_emissions = st.sidebar.number_input("Average Budget for Emissions per Attendee (kg CO2)", value=20)
 
 # Cost and Emissions Lookup Table for Different Travel Modes
 st.sidebar.subheader("💡 Cost and Emissions Lookup Table")
-cost_per_km_car = st.sidebar.number_input("Cost per km by Car ($)", value=0.5)
+cost_per_km_car = st.sidebar.number_input("Cost per km by Car (£)", value=0.5)
 emission_per_km_car = st.sidebar.number_input("Emissions per km by Car (kg CO2)", value=0.2)
-cost_per_km_train = st.sidebar.number_input("Cost per km by Train ($)", value=0.3)
+cost_per_km_train = st.sidebar.number_input("Cost per km by Train (£)", value=0.3)
 emission_per_km_train = st.sidebar.number_input("Emissions per km by Train (kg CO2)", value=0.1)
 
 # Potential Base Locations Input
 st.sidebar.subheader("📍 Potential Base Locations")
 base_locations = st.sidebar.text_area("Enter base locations (one per line)", 
                                       "London, UK\nManchester, UK\nBirmingham, UK\nLeeds, UK\nGlasgow, UK\nEdinburgh, UK\nBristol, UK\nLiverpool, UK\nNewcastle, UK\nSheffield, UK")
-st.sidebar.markdown("</div>", unsafe_allow_html=True)
 
 # Upload Attendee Postcodes
 st.subheader("Upload Attendee Postcodes CSV")
@@ -119,7 +117,12 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
     valid_origins = [origin for origin in valid_origins if origin is not None]
     num_attendees = len(valid_origins)
     
-    destinations = base_locations.split('\n')
+    if not base_locations.strip():
+        # If no base locations provided, use attendee locations as potential base locations
+        destinations = valid_origins
+    else:
+        destinations = base_locations.split('\n')
+    
     valid_destinations = [validate_location(api_key, destination) for destination in destinations]
     valid_destinations = [destination for destination in valid_destinations if destination is not None]
     
@@ -162,15 +165,15 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
         
         results.append({
             "Location": location,
-            "Total Cost ($)": int(total_cost),
+            "Total Cost (£)": int(total_cost),
             "Total Emissions (kg CO2)": int(total_emissions),
             "Total Time": f"{int(total_time_hours)}h {int(total_time_minutes)}m",
-            "Avg Cost per Attendee ($)": int(avg_cost_per_attendee),
+            "Avg Cost per Attendee (£)": int(avg_cost_per_attendee),
             "Avg Emissions per Attendee (kg CO2)": int(avg_emissions_per_attendee),
             "Avg Time per Attendee": f"{int(avg_time_per_attendee // 60)}h {int(avg_time_per_attendee % 60)}m"
         })
     
-    results = sorted(results, key=lambda x: (x["Total Cost ($)"], x["Total Emissions (kg CO2)"]))
+    results = sorted(results, key=lambda x: (x["Total Cost (£)"], x["Total Emissions (kg CO2)"]))
     return results[:3], num_attendees
 
 def display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type):
@@ -190,16 +193,16 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
     st.write(styled_df.to_html(), unsafe_allow_html=True)
 
     locations = [rec['Location'] for rec in recommendations]
-    costs = [rec['Avg Cost per Attendee ($)'] if budget_type == "Average Budget per Attendee" else rec['Total Cost ($)'] for rec in recommendations]
+    costs = [rec['Avg Cost per Attendee (£)'] if budget_type == "Average Budget per Attendee" else rec['Total Cost (£)'] for rec in recommendations]
     emissions = [rec['Avg Emissions per Attendee (kg CO2)'] if budget_type == "Average Budget per Attendee" else rec['Total Emissions (kg CO2)'] for rec in recommendations]
     times = [int(rec['Avg Time per Attendee'].split('h')[0])*60 + int(rec['Avg Time per Attendee'].split('h')[1].replace('m', '')) if budget_type == "Average Budget per Attendee" else float(rec['Total Time'].split('h')[0])*60 + float(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
 
     if budget_type == "Total Budget for the Event":
-        budget_cost_label = "Total Cost ($)"
+        budget_cost_label = "Total Cost (£)"
         budget_time_label = "Total Time (minutes)"
         budget_emissions_label = "Total Emissions (kg CO2)"
     else:
-        budget_cost_label = "Avg Cost per Attendee ($)"
+        budget_cost_label = "Avg Cost per Attendee (£)"
         budget_time_label = "Avg Time per Attendee (minutes)"
         budget_emissions_label = "Avg Emissions per Attendee (kg CO2)"
 
@@ -246,6 +249,7 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
     3. **Travel Mode Selection**: The default travel mode is train. If the train travel time is more than 1.5 times the car travel time, car travel is selected instead.
     4. **Cost and Emissions Calculation**: Based on the selected travel mode, the total travel cost and emissions are calculated using the provided cost and emissions per km values. Average costs and emissions per attendee are also calculated.
     5. **Recommendation Ranking**: The potential event locations are ranked based on total cost and emissions, with the top three locations being recommended.
+    6. **No Base Locations Provided**: If no potential base locations are provided, the tool uses the attendee locations as potential base locations and recommends the best location based on the same criteria.
 
     ### Assumptions Made:
     - **Travel Mode**: Train is the default travel mode. Car travel is considered only if it significantly reduces travel time (less than 1.5 times the train travel time).
