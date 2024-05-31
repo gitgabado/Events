@@ -254,7 +254,7 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
     """)
 
 # Initialize the usage count file
-usage_count_file = "/tmp/usage_count.json"
+usage_count_file = "usage_count.json"
 
 # Function to load usage data
 def load_usage_data():
@@ -262,7 +262,7 @@ def load_usage_data():
         with open(usage_count_file, "r") as f:
             return json.load(f)
     else:
-        return {"usage_count": 0, "total_attendees": 0}
+        return {"usage_count": 0, "total_attendees": 0, "total_time": 0}
 
 # Function to save usage data
 def save_usage_data(data):
@@ -278,9 +278,12 @@ if st.button("Generate Recommendations"):
     elif not uploaded_file:
         st.error("Please upload a CSV file with attendee postcodes.")
     else:
+        start_time = time.time()
         with st.spinner('Recommendation Engine at work ⏳'):
             recommendations, num_attendees = generate_recommendations(df, base_locations, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train, budget_cost, budget_time, budget_emissions, budget_type)
             time.sleep(2)  # Simulate processing time
+        end_time = time.time()
+        processing_time = end_time - start_time
         
         st.subheader("Top 3 Recommended Locations")
         display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type)
@@ -288,10 +291,15 @@ if st.button("Generate Recommendations"):
         # Update and save usage data
         usage_data["usage_count"] += 1
         usage_data["total_attendees"] += num_attendees
+        usage_data["total_time"] += processing_time
         save_usage_data(usage_data)
 
-# Display cumulative usage data in the footer
+# Display cumulative usage data in the sidebar
+average_time = usage_data["total_time"] / usage_data["usage_count"] if usage_data["usage_count"] > 0 else 0
+average_time_formatted = time.strftime("%M:%S", time.gmtime(average_time))
+
 st.sidebar.markdown("---")
 st.sidebar.subheader("Usage Statistics")
 st.sidebar.markdown(f"**Total Events Planned:** {usage_data['usage_count']}")
 st.sidebar.markdown(f"**Total Attendees Processed:** {usage_data['total_attendees']}")
+st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted} minutes")
