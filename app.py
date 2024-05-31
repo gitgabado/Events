@@ -47,17 +47,26 @@ def calculate_distances(api_key, origins, destinations):
     gmaps = googlemaps.Client(key=api_key)
     distances = {}
     for origin in origins:
+        valid_origin = validate_location(api_key, origin)
+        if not valid_origin:
+            st.error(f"Invalid origin: {origin}")
+            continue
         distances[origin] = []
         for destination in destinations:
+            valid_destination = validate_location(api_key, destination)
+            if not valid_destination:
+                st.error(f"Invalid destination: {destination}")
+                distances[origin].append(float('inf'))
+                continue
             try:
-                result = gmaps.directions(origin, destination, mode="driving")
+                result = gmaps.directions(valid_origin, valid_destination, mode="driving")
                 if result and result[0]['legs']:
                     distance = result[0]['legs'][0]['distance']['value'] / 1000  # in km
                     distances[origin].append(distance)
                 else:
                     distances[origin].append(float('inf'))
             except Exception as e:
-                st.error(f"Error calculating distance from {origin} to {destination}: {e}")
+                st.error(f"Error calculating distance from {valid_origin} to {valid_destination}: {e}")
                 distances[origin].append(float('inf'))
     return distances
 
@@ -66,19 +75,12 @@ def generate_recommendations(df, base_locations, cost_per_km, emission_per_km, b
     origins = df['postcode'].tolist()
     destinations = base_locations.split('\n')
     
-    # Validate destinations
-    valid_destinations = []
-    for destination in destinations:
-        valid_location = validate_location(api_key, destination)
-        if valid_location:
-            valid_destinations.append(valid_location)
-        else:
-            st.error(f"Invalid destination: {destination}")
-
-    distances = calculate_distances(api_key, origins, valid_destinations)
+    distances = calculate_distances(api_key, origins, destinations)
     
     results = []
-    for location in valid_destinations:
+    for location in destinations:
+        if location not in distances:
+            continue
         total_cost = sum([dist * cost_per_km for dist in distances[location]])
         total_emissions = sum([dist * emission_per_km for dist in distances[location]])
         avg_cost_per_attendee = total_cost / len(origins)
