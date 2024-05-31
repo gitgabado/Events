@@ -79,7 +79,7 @@ def calculate_distances(api_key, origins, destinations, travel_mode):
                     distances[origin][destination] = float('inf')
                     times[origin][destination] = float('inf')
             except Exception as e:
-                st.error(f"Error calculating distance from {origin} to {destination}: {e}")
+                st.error(f"Error calculating distance from {origin} to {destination} with mode {travel_mode}: {e}")
                 distances[origin][destination] = float('inf')
                 times[origin][destination] = float('inf')
     return distances, times
@@ -93,14 +93,14 @@ def choose_travel_mode(api_key, origin, destination, cost_per_km_car, emission_p
     train_time = train_times[origin][destination]
 
     if car_time == float('inf') and train_time == float('inf'):
-        return 'train'  # Default to train if both are unavailable
+        return 'transit'  # Default to train if both are unavailable
     if car_time == float('inf'):
-        return 'train'
+        return 'transit'
     if train_time == float('inf'):
-        return 'car'
+        return 'driving'
     if train_time > 1.5 * car_time:
-        return 'car'
-    return 'train'
+        return 'driving'
+    return 'transit'
 
 # Function to generate recommendations
 def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train, budget_cost, budget_time, budget_emissions, budget_type):
@@ -120,7 +120,7 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
         total_time = 0
         for origin in valid_origins:
             travel_mode = choose_travel_mode(api_key, origin, location, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train)
-            if travel_mode == 'car':
+            if travel_mode == 'driving':
                 cost_per_km = cost_per_km_car
                 emission_per_km = emission_per_km_car
             else:
