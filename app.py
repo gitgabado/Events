@@ -4,7 +4,6 @@ import googlemaps
 import matplotlib.pyplot as plt
 from io import StringIO
 import time
-from fpdf import FPDF
 import os
 import tempfile
 
@@ -98,48 +97,71 @@ def generate_recommendations(df, base_locations, cost_per_km, emission_per_km, b
         
         results.append({
             "Location": location,
-            "Total Cost": total_cost,
-            "Total Emissions": total_emissions,
+            "Total Cost ($)": total_cost,
+            "Total Emissions (kg CO2)": total_emissions,
             "Total Time": f"{int(total_time_hours)}h {int(total_time_minutes)}m",
-            "Avg Cost per Attendee": avg_cost_per_attendee,
-            "Avg Emissions per Attendee": avg_emissions_per_attendee,
-            "Avg Time per Attendee": avg_time_per_attendee
+            "Avg Cost per Attendee ($)": avg_cost_per_attendee,
+            "Avg Emissions per Attendee (kg CO2)": avg_emissions_per_attendee,
+            "Avg Time per Attendee": f"{int(avg_time_per_attendee // 60)}h {int(avg_time_per_attendee % 60)}m"
         })
     
-    results = sorted(results, key=lambda x: (x["Total Cost"], x["Total Emissions"]))
+    results = sorted(results, key=lambda x: (x["Total Cost ($)"], x["Total Emissions (kg CO2)"]))
     return results[:3]
 
-# Function to generate PDF report
-def generate_pdf(report_data, charts):
-    pdf = FPDF()
-    pdf.add_page()
-    
-    pdf.set_font("Arial", size=12)
-    pdf.cell(200, 10, txt="Event Location Planner Report", ln=True, align='C')
-    
-    pdf.ln(10)
-    pdf.cell(200, 10, txt=f"Total Number of Attendees: {len(report_data['origins'])}", ln=True)
-    
-    pdf.ln(10)
-    pdf.set_font("Arial", size=10)
-    
-    for idx, rec in enumerate(report_data['recommendations'], 1):
-        pdf.cell(200, 10, txt=f"{idx}. {rec['Location']}", ln=True)
-        pdf.cell(200, 10, txt=f"   Total Cost: ${rec['Total Cost']:.2f}", ln=True)
-        pdf.cell(200, 10, txt=f"   Total Emissions: {rec['Total Emissions']:.2f} kg CO2", ln=True)
-        pdf.cell(200, 10, txt=f"   Total Time: {rec['Total Time']}", ln=True)
-        pdf.cell(200, 10, txt=f"   Avg Cost per Attendee: ${rec['Avg Cost per Attendee']:.2f}", ln=True)
-        pdf.cell(200, 10, txt=f"   Avg Emissions per Attendee: {rec['Avg Emissions per Attendee']:.2f} kg CO2", ln=True)
-        pdf.cell(200, 10, txt=f"   Avg Time per Attendee: {rec['Avg Time per Attendee']:.2f} minutes", ln=True)
-        pdf.ln(5)
-    
-    for chart in charts:
-        pdf.add_page()
-        pdf.image(chart, x=10, y=20, w=180)
-    
-    pdf_output = os.path.join(tempfile.gettempdir(), "event_location_report.pdf")
-    pdf.output(pdf_output)
-    return pdf_output
+def display_recommendations_and_charts(recommendations, budget_cost, budget_time, budget_emissions):
+    df_recommendations = pd.DataFrame(recommendations)
+    df_recommendations.index = df_recommendations.index + 1  # Make index start from 1
+
+    # Styling the DataFrame for a premium look
+    styled_df = df_recommendations.style.set_table_styles(
+        [{'selector': 'th', 'props': [('font-size', '14pt'), ('text-align', 'center')]},
+         {'selector': 'td', 'props': [('font-size', '12pt'), ('text-align', 'center')]}]
+    ).set_properties(**{
+        'background-color': 'white',
+        'color': 'black',
+        'border-color': 'black'
+    }).hide(axis='index')
+
+    st.write(styled_df.to_html(), unsafe_allow_html=True)
+
+    locations = [rec['Location'] for rec in recommendations]
+    costs = [rec['Total Cost ($)'] for rec in recommendations]
+    emissions = [rec['Total Emissions (kg CO2)'] for rec in recommendations]
+    times = [float(rec['Total Time'].split('h')[0])*60 + float(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        fig, ax = plt.subplots()
+        ax.bar(locations, costs, color='blue', label='Total Cost ($)')
+        ax.axhline(y=budget_cost, color='red', linestyle='--', label='Cost Budget ($)')
+        ax.set_ylabel('Cost ($)')
+        ax.set_title('Total Cost vs Budget')
+        ax.legend()
+        fig.tight_layout()
+        chart1_path = os.path.join(temp_dir, "chart1.png")
+        fig.savefig(chart1_path)
+        st.pyplot(fig)
+
+        fig, ax = plt.subplots()
+        ax.bar(locations, emissions, color='green', label='Total Emissions (kg CO2)')
+        ax.axhline(y=budget_emissions, color='red', linestyle='--', label='Emissions Budget (kg CO2)')
+        ax.set_ylabel('Emissions (kg CO2)')
+        ax.set_title('Total Emissions vs Budget')
+        ax.legend()
+        fig.tight_layout()
+        chart2_path = os.path.join(temp_dir, "chart2.png")
+        fig.savefig(chart2_path)
+        st.pyplot(fig)
+
+        fig, ax = plt.subplots()
+        ax.bar(locations, times, color='purple', label='Total Time (minutes)')
+        ax.axhline(y=budget_time, color='red', linestyle='--', label='Time Budget (minutes)')
+        ax.set_ylabel('Time (minutes)')
+        ax.set_title('Total Time vs Budget')
+        ax.legend()
+        fig.tight_layout()
+        chart3_path = os.path.join(temp_dir, "chart3.png")
+        fig.savefig(chart3_path)
+        st.pyplot(fig)
 
 if st.button("Generate Recommendations"):
     if not api_key:
@@ -152,74 +174,4 @@ if st.button("Generate Recommendations"):
             time.sleep(2)  # Simulate processing time
         
         st.subheader("Top 3 Recommended Locations")
-        
-        df_recommendations = pd.DataFrame(recommendations)
-        st.table(df_recommendations)
-
-        # Visualization
-        locations = [rec['Location'] for rec in recommendations]
-        costs = [rec['Total Cost'] for rec in recommendations]
-        emissions = [rec['Total Emissions'] for rec in recommendations]
-        times = [float(rec['Total Time'].split('h')[0])*60 + float(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
-
-        # Use temporary directory for charts
-        with tempfile.TemporaryDirectory() as temp_dir:
-            fig, ax = plt.subplots()
-            ax.bar(locations, costs, color='blue', label='Total Cost')
-            ax.axhline(y=budget_cost, color='red', linestyle='--', label='Cost Budget')
-            ax.set_ylabel('Cost ($)')
-            ax.set_title('Total Cost vs Budget')
-            ax.legend()
-            fig.tight_layout()
-            
-            chart1_path = os.path.join(temp_dir, "chart1.png")
-            try:
-                fig.savefig(chart1_path)
-            except Exception as e:
-                st.error(f"Error saving chart: {e}")
-            st.pyplot(fig)
-
-            fig, ax = plt.subplots()
-            ax.bar(locations, emissions, color='green', label='Total Emissions')
-            ax.axhline(y=budget_emissions, color='red', linestyle='--', label='Emissions Budget')
-            ax.set_ylabel('Emissions (kg CO2)')
-            ax.set_title('Total Emissions vs Budget')
-            ax.legend()
-            fig.tight_layout()
-            
-            chart2_path = os.path.join(temp_dir, "chart2.png")
-            try:
-                fig.savefig(chart2_path)
-            except Exception as e:
-                st.error(f"Error saving chart: {e}")
-            st.pyplot(fig)
-
-            fig, ax = plt.subplots()
-            ax.bar(locations, times, color='purple', label='Total Time')
-            ax.axhline(y=budget_time, color='red', linestyle='--', label='Time Budget')
-            ax.set_ylabel('Time (minutes)')
-            ax.set_title('Total Time vs Budget')
-            ax.legend()
-            fig.tight_layout()
-            
-            chart3_path = os.path.join(temp_dir, "chart3.png")
-            try:
-                fig.savefig(chart3_path)
-            except Exception as e:
-                st.error(f"Error saving chart: {e}")
-            st.pyplot(fig)
-            
-            if st.button("Download Report 📄"):
-                report_data = {
-                    "origins": df['postcode'].tolist(),
-                    "recommendations": recommendations
-                }
-                pdf_output = generate_pdf(report_data, [chart1_path, chart2_path, chart3_path])
-                with open(pdf_output, "rb") as file:
-                    st.download_button(
-                        label="Download Report 📄",
-                        data=file,
-                        file_name="event_location_report.pdf",
-                        mime="application/pdf"
-                    )
-                st.success("Report generated successfully!")
+        display_recommendations_and_charts(recommendations, budget_cost, budget_time, budget_emissions)
