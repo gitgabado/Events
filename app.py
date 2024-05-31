@@ -21,7 +21,7 @@ st.sidebar.header("⚙️ Settings")
 
 api_key = st.sidebar.text_input("Google API Key", type="password")
 
-st.sidebar.markdown("💸 Budget")
+st.sidebar.markdown("**💸 Budget**")
 budget_type = st.sidebar.radio("", ["Total Budget for the Event", "Average Budget per Attendee"])
 
 if budget_type == "Total Budget for the Event":
@@ -51,7 +51,10 @@ uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
 
 if uploaded_file:
     df = pd.read_csv(uploaded_file)
-    st.write("Attendee Postcodes:", df)
+    if 'postcode' not in df.columns:
+        st.error("The uploaded CSV file must contain a 'postcode' column.")
+    else:
+        st.write("Attendee Postcodes:", df)
 
 # Function to validate and format locations
 def validate_location(api_key, location):
@@ -284,6 +287,8 @@ if st.button("Generate Recommendations"):
         st.error("Please enter your Google API Key in the settings.")
     elif not uploaded_file:
         st.error("Please upload a CSV file with attendee postcodes.")
+    elif 'postcode' not in df.columns:
+        st.error("The uploaded CSV file must contain a 'postcode' column.")
     else:
         start_time = time.time()
         with st.spinner('Recommendation Engine at work ⏳'):
