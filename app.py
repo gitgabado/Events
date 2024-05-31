@@ -4,6 +4,7 @@ import googlemaps
 import matplotlib.pyplot as plt
 from io import StringIO
 import time
+from fpdf import FPDF
 
 st.title("Event Location Planner")
 
@@ -89,17 +90,54 @@ def generate_recommendations(df, base_locations, cost_per_km, emission_per_km, b
         total_emissions = sum([distances[origin][location] * emission_per_km for origin in valid_origins])
         total_time = sum([times[origin][location] for origin in valid_origins])
         avg_cost_per_attendee = total_cost / len(valid_origins)
+        avg_emissions_per_attendee = total_emissions / len(valid_origins)
+        avg_time_per_attendee = total_time / len(valid_origins)
+        total_time_hours, total_time_minutes = divmod(total_time, 60)
         
         results.append({
             "Location": location,
             "Total Cost": total_cost,
             "Total Emissions": total_emissions,
-            "Total Time": total_time,
-            "Avg Cost per Attendee": avg_cost_per_attendee
+            "Total Time": f"{int(total_time_hours)}h {int(total_time_minutes)}m",
+            "Avg Cost per Attendee": avg_cost_per_attendee,
+            "Avg Emissions per Attendee": avg_emissions_per_attendee,
+            "Avg Time per Attendee": avg_time_per_attendee
         })
     
     results = sorted(results, key=lambda x: (x["Total Cost"], x["Total Emissions"]))
     return results[:3]
+
+# Function to generate PDF report
+def generate_pdf(report_data, charts):
+    pdf = FPDF()
+    pdf.add_page()
+    
+    pdf.set_font("Arial", size=12)
+    pdf.cell(200, 10, txt="Event Location Planner Report", ln=True, align='C')
+    
+    pdf.ln(10)
+    pdf.cell(200, 10, txt=f"Total Number of Attendees: {len(report_data['origins'])}", ln=True)
+    
+    pdf.ln(10)
+    pdf.set_font("Arial", size=10)
+    
+    for idx, rec in enumerate(report_data['recommendations'], 1):
+        pdf.cell(200, 10, txt=f"{idx}. {rec['Location']}", ln=True)
+        pdf.cell(200, 10, txt=f"   Total Cost: ${rec['Total Cost']:.2f}", ln=True)
+        pdf.cell(200, 10, txt=f"   Total Emissions: {rec['Total Emissions']:.2f} kg CO2", ln=True)
+        pdf.cell(200, 10, txt=f"   Total Time: {rec['Total Time']}", ln=True)
+        pdf.cell(200, 10, txt=f"   Avg Cost per Attendee: ${rec['Avg Cost per Attendee']:.2f}", ln=True)
+        pdf.cell(200, 10, txt=f"   Avg Emissions per Attendee: {rec['Avg Emissions per Attendee']:.2f} kg CO2", ln=True)
+        pdf.cell(200, 10, txt=f"   Avg Time per Attendee: {rec['Avg Time per Attendee']:.2f} minutes", ln=True)
+        pdf.ln(5)
+    
+    for chart in charts:
+        pdf.add_page()
+        pdf.image(chart, x=10, y=20, w=180)
+    
+    pdf_output = "/mnt/data/event_location_report.pdf"
+    pdf.output(pdf_output)
+    return pdf_output
 
 if st.button("Generate Recommendations"):
     if not api_key:
@@ -110,20 +148,17 @@ if st.button("Generate Recommendations"):
         with st.spinner('Recommendation Engine at work ⏳'):
             recommendations = generate_recommendations(df, base_locations, cost_per_km, emission_per_km, budget_cost, budget_time, budget_emissions)
             time.sleep(2)  # Simulate processing time
+        
         st.subheader("Top 3 Recommended Locations")
         
-        for idx, rec in enumerate(recommendations, 1):
-            st.markdown(f"**{idx}. {rec['Location']}**")
-            st.write(f"Total Cost: ${rec['Total Cost']:.2f}")
-            st.write(f"Total Emissions: {rec['Total Emissions']:.2f} kg CO2")
-            st.write(f"Total Time: {rec['Total Time']:.2f} minutes")
-            st.write(f"Avg Cost per Attendee: ${rec['Avg Cost per Attendee']:.2f}")
+        df_recommendations = pd.DataFrame(recommendations)
+        st.table(df_recommendations)
 
         # Visualization
         locations = [rec['Location'] for rec in recommendations]
         costs = [rec['Total Cost'] for rec in recommendations]
         emissions = [rec['Total Emissions'] for rec in recommendations]
-        times = [rec['Total Time'] for rec in recommendations]
+        times = [float(rec['Total Time'].split('h')[0])*60 + float(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
         
         fig, ax = plt.subplots()
         ax.bar(locations, costs, color='blue', label='Total Cost')
@@ -131,16 +166,22 @@ if st.button("Generate Recommendations"):
         ax.set_ylabel('Cost ($)')
         ax.set_title('Total Cost vs Budget')
         ax.legend()
+        fig.tight_layout()
         
+        chart1_path = "/mnt/data/chart1.png"
+        fig.savefig(chart1_path)
         st.pyplot(fig)
-        
+
         fig, ax = plt.subplots()
         ax.bar(locations, emissions, color='green', label='Total Emissions')
         ax.axhline(y=budget_emissions, color='red', linestyle='--', label='Emissions Budget')
         ax.set_ylabel('Emissions (kg CO2)')
         ax.set_title('Total Emissions vs Budget')
         ax.legend()
+        fig.tight_layout()
         
+        chart2_path = "/mnt/data/chart2.png"
+        fig.savefig(chart2_path)
         st.pyplot(fig)
 
         fig, ax = plt.subplots()
@@ -149,5 +190,18 @@ if st.button("Generate Recommendations"):
         ax.set_ylabel('Time (minutes)')
         ax.set_title('Total Time vs Budget')
         ax.legend()
+        fig.tight_layout()
         
+        chart3_path = "/mnt/data/chart3.png"
+        fig.savefig(chart3_path)
         st.pyplot(fig)
+        
+        if st.button("Download Report 📄"):
+            report_data = {
+                "origins": df['postcode'].tolist(),
+                "recommendations": recommendations
+            }
+            pdf_output = generate_pdf(report_data, [chart1_path, chart2_path, chart3_path])
+            st.success(f"Report generated successfully! [Download Report]({pdf_output})")
+
+
