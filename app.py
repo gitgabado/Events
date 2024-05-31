@@ -19,7 +19,7 @@ emission_per_km = st.sidebar.number_input("Emissions per km (kg CO2)", value=0.2
 # Potential Base Locations Input
 st.sidebar.subheader("Potential Base Locations")
 base_locations = st.sidebar.text_area("Enter base locations (one per line)", 
-                                      "London\nManchester\nBirmingham\nLeeds\nGlasgow\nEdinburgh\nBristol\nLiverpool\nNewcastle\nSheffield")
+                                      "London, UK\nManchester, UK\nBirmingham, UK\nLeeds, UK\nGlasgow, UK\nEdinburgh, UK\nBristol, UK\nLiverpool, UK\nNewcastle, UK\nSheffield, UK")
 
 # Upload Attendee Postcodes
 st.subheader("Upload Attendee Postcodes CSV")
