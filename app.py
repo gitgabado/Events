@@ -29,6 +29,19 @@ if uploaded_file:
     df = pd.read_csv(uploaded_file)
     st.write("Attendee Postcodes:", df)
 
+# Function to validate locations
+def validate_location(api_key, location):
+    gmaps = googlemaps.Client(key=api_key)
+    try:
+        result = gmaps.geocode(location)
+        if result:
+            return result[0]['formatted_address']
+        else:
+            return None
+    except Exception as e:
+        st.error(f"Error validating location {location}: {e}")
+        return None
+
 # Function to calculate distances using Google Routes API
 def calculate_distances(api_key, origins, destinations):
     gmaps = googlemaps.Client(key=api_key)
@@ -38,7 +51,7 @@ def calculate_distances(api_key, origins, destinations):
         for destination in destinations:
             try:
                 result = gmaps.directions(origin, destination, mode="driving")
-                if result:
+                if result and result[0]['legs']:
                     distance = result[0]['legs'][0]['distance']['value'] / 1000  # in km
                     distances[origin].append(distance)
                 else:
@@ -53,10 +66,19 @@ def generate_recommendations(df, base_locations, cost_per_km, emission_per_km, b
     origins = df['postcode'].tolist()
     destinations = base_locations.split('\n')
     
-    distances = calculate_distances(api_key, origins, destinations)
+    # Validate destinations
+    valid_destinations = []
+    for destination in destinations:
+        valid_location = validate_location(api_key, destination)
+        if valid_location:
+            valid_destinations.append(valid_location)
+        else:
+            st.error(f"Invalid destination: {destination}")
+
+    distances = calculate_distances(api_key, origins, valid_destinations)
     
     results = []
-    for location in destinations:
+    for location in valid_destinations:
         total_cost = sum([dist * cost_per_km for dist in distances[location]])
         total_emissions = sum([dist * emission_per_km for dist in distances[location]])
         avg_cost_per_attendee = total_cost / len(origins)
@@ -74,6 +96,8 @@ def generate_recommendations(df, base_locations, cost_per_km, emission_per_km, b
 if st.button("Generate Recommendations"):
     if not api_key:
         st.error("Please enter your Google API Key in the settings.")
+    elif not uploaded_file:
+        st.error("Please upload a CSV file with attendee postcodes.")
     else:
         recommendations = generate_recommendations(df, base_locations, cost_per_km, emission_per_km, budget)
         st.subheader("Top 3 Recommended Locations")
@@ -105,4 +129,3 @@ if st.button("Generate Recommendations"):
         ax.legend()
         
         st.pyplot(fig)
-
