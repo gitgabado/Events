@@ -3,6 +3,7 @@ import pandas as pd
 import googlemaps
 import matplotlib.pyplot as plt
 from io import StringIO
+import time
 
 st.title("Event Location Planner")
 
@@ -38,10 +39,8 @@ def validate_location(api_key, location):
         result = gmaps.geocode(location)
         if result:
             formatted_address = result[0]['formatted_address']
-            st.write(f"Validated location: {formatted_address}")
             return formatted_address
         else:
-            st.write(f"Location not found: {location}")
             return None
     except Exception as e:
         st.error(f"Error validating location {location}: {e}")
@@ -108,7 +107,9 @@ if st.button("Generate Recommendations"):
     elif not uploaded_file:
         st.error("Please upload a CSV file with attendee postcodes.")
     else:
-        recommendations = generate_recommendations(df, base_locations, cost_per_km, emission_per_km, budget_cost, budget_time, budget_emissions)
+        with st.spinner('Recommendation Engine at work ⏳'):
+            recommendations = generate_recommendations(df, base_locations, cost_per_km, emission_per_km, budget_cost, budget_time, budget_emissions)
+            time.sleep(2)  # Simulate processing time
         st.subheader("Top 3 Recommended Locations")
         
         for idx, rec in enumerate(recommendations, 1):
