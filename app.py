@@ -25,10 +25,14 @@ else:
     budget_time = st.sidebar.number_input("Average Budget for Time per Attendee (minutes)", value=15)
     budget_emissions = st.sidebar.number_input("Average Budget for Emissions per Attendee (kg CO2)", value=20)
 
-# Lookup Table for Cost and Emissions
+# Cost and Emissions Lookup Table for Different Travel Modes
 st.sidebar.subheader("Cost and Emissions Lookup Table")
-cost_per_km = st.sidebar.number_input("Cost per km ($)", value=0.5)
-emission_per_km = st.sidebar.number_input("Emissions per km (kg CO2)", value=0.2)
+cost_per_km_car = st.sidebar.number_input("Cost per km by Car ($)", value=0.5)
+emission_per_km_car = st.sidebar.number_input("Emissions per km by Car (kg CO2)", value=0.2)
+cost_per_km_train = st.sidebar.number_input("Cost per km by Train ($)", value=0.3)
+emission_per_km_train = st.sidebar.number_input("Emissions per km by Train (kg CO2)", value=0.1)
+cost_per_km_plane = st.sidebar.number_input("Cost per km by Plane ($)", value=1.0)
+emission_per_km_plane = st.sidebar.number_input("Emissions per km by Plane (kg CO2)", value=0.5)
 
 # Potential Base Locations Input
 st.sidebar.subheader("Potential Base Locations")
@@ -58,7 +62,7 @@ def validate_location(api_key, location):
         return None
 
 # Function to calculate distances using Google Routes API
-def calculate_distances(api_key, origins, destinations):
+def calculate_distances(api_key, origins, destinations, travel_mode):
     gmaps = googlemaps.Client(key=api_key)
     distances = {}
     times = {}
@@ -67,7 +71,7 @@ def calculate_distances(api_key, origins, destinations):
         times[origin] = {}
         for destination in destinations:
             try:
-                result = gmaps.directions(origin, destination, mode="driving")
+                result = gmaps.directions(origin, destination, mode=travel_mode)
                 if result and result[0]['legs']:
                     distance = result[0]['legs'][0]['distance']['value'] / 1000  # in km
                     time = result[0]['legs'][0]['duration']['value'] / 60  # in minutes
@@ -82,8 +86,26 @@ def calculate_distances(api_key, origins, destinations):
                 times[origin][destination] = float('inf')
     return distances, times
 
+# Function to choose travel mode based on conditions
+def choose_travel_mode(api_key, origin, destination, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train):
+    car_distances, car_times = calculate_distances(api_key, [origin], [destination], 'driving')
+    train_distances, train_times = calculate_distances(api_key, [origin], [destination], 'transit')
+    
+    car_time = car_times[origin][destination]
+    train_time = train_times[origin][destination]
+
+    if car_time == float('inf') and train_time == float('inf'):
+        return 'plane'
+    if car_time == float('inf'):
+        return 'train'
+    if train_time == float('inf'):
+        return 'car'
+    if train_time > 1.5 * car_time:
+        return 'car'
+    return 'train'
+
 # Function to generate recommendations
-def generate_recommendations(df, base_locations, cost_per_km, emission_per_km, budget_cost, budget_time, budget_emissions, budget_type):
+def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train, cost_per_km_plane, emission_per_km_plane, budget_cost, budget_time, budget_emissions, budget_type):
     origins = df['postcode'].tolist()
     valid_origins = [validate_location(api_key, origin) for origin in origins]
     valid_origins = [origin for origin in valid_origins if origin is not None]
@@ -93,13 +115,32 @@ def generate_recommendations(df, base_locations, cost_per_km, emission_per_km, b
     valid_destinations = [validate_location(api_key, destination) for destination in destinations]
     valid_destinations = [destination for destination in valid_destinations if destination is not None]
     
-    distances, times = calculate_distances(api_key, valid_origins, valid_destinations)
-    
     results = []
     for location in valid_destinations:
-        total_cost = sum([distances[origin][location] * cost_per_km for origin in valid_origins])
-        total_emissions = sum([distances[origin][location] * emission_per_km for origin in valid_origins])
-        total_time = sum([times[origin][location] for origin in valid_origins])
+        total_cost = 0
+        total_emissions = 0
+        total_time = 0
+        for origin in valid_origins:
+            travel_mode = choose_travel_mode(api_key, origin, location, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train)
+            if travel_mode == 'plane':
+                travel_mode = 'driving'  # Google Maps doesn't support plane mode, using driving as a proxy
+                cost_per_km = cost_per_km_plane
+                emission_per_km = emission_per_km_plane
+            elif travel_mode == 'car':
+                cost_per_km = cost_per_km_car
+                emission_per_km = emission_per_km_car
+            else:
+                cost_per_km = cost_per_km_train
+                emission_per_km = emission_per_km_train
+            
+            distances, times = calculate_distances(api_key, [origin], [location], travel_mode)
+            distance = distances[origin][location]
+            time = times[origin][location]
+            
+            total_cost += distance * cost_per_km
+            total_emissions += distance * emission_per_km
+            total_time += time
+        
         avg_cost_per_attendee = total_cost / num_attendees
         avg_emissions_per_attendee = total_emissions / num_attendees
         avg_time_per_attendee = total_time / num_attendees
@@ -151,7 +192,7 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
     with tempfile.TemporaryDirectory() as temp_dir:
         fig, ax = plt.subplots()
         ax.bar(locations, costs, color='blue', label=budget_cost_label)
-        ax.axhline(y=budget_cost, color='red', linestyle='--', label=f'Budgeted {budget_cost_label}')
+        ax.axhline(y=budget_cost if budget_type == "Total" else budget_cost * num_attendees, color='red', linestyle='--', label=f'Budgeted {budget_cost_label}')
         ax.set_ylabel(budget_cost_label)
         ax.set_title(f'{budget_cost_label} vs Budget')
         ax.legend()
@@ -162,7 +203,7 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
 
         fig, ax = plt.subplots()
         ax.bar(locations, emissions, color='green', label=budget_emissions_label)
-        ax.axhline(y=budget_emissions, color='red', linestyle='--', label=f'Budgeted {budget_emissions_label}')
+        ax.axhline(y=budget_emissions if budget_type == "Total" else budget_emissions * num_attendees, color='red', linestyle='--', label=f'Budgeted {budget_emissions_label}')
         ax.set_ylabel(budget_emissions_label)
         ax.set_title(f'{budget_emissions_label} vs Budget')
         ax.legend()
@@ -173,7 +214,7 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
 
         fig, ax = plt.subplots()
         ax.bar(locations, times, color='purple', label=budget_time_label)
-        ax.axhline(y=budget_time, color='red', linestyle='--', label=f'Budgeted {budget_time_label}')
+        ax.axhline(y=budget_time if budget_type == "Total" else budget_time * num_attendees, color='red', linestyle='--', label=f'Budgeted {budget_time_label}')
         ax.set_ylabel(budget_time_label)
         ax.set_title(f'{budget_time_label} vs Budget')
         ax.legend()
@@ -189,7 +230,7 @@ if st.button("Generate Recommendations"):
         st.error("Please upload a CSV file with attendee postcodes.")
     else:
         with st.spinner('Recommendation Engine at work ⏳'):
-            recommendations, num_attendees = generate_recommendations(df, base_locations, cost_per_km, emission_per_km, budget_cost, budget_time, budget_emissions, budget_type)
+            recommendations, num_attendees = generate_recommendations(df, base_locations, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train, cost_per_km_plane, emission_per_km_plane, budget_cost, budget_time, budget_emissions, budget_type)
             time.sleep(2)  # Simulate processing time
         
         st.subheader("Top 3 Recommended Locations")
