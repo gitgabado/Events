@@ -78,5 +78,31 @@ if st.button("Generate Recommendations"):
         recommendations = generate_recommendations(df, base_locations, cost_per_km, emission_per_km, budget)
         st.subheader("Top 3 Recommended Locations")
         
-        for idx
+        for idx, rec in enumerate(recommendations, 1):
+            st.markdown(f"**{idx}. {rec['Location']}**")
+            st.write(f"Total Cost: ${rec['Total Cost']:.2f}")
+            st.write(f"Total Emissions: {rec['Total Emissions']:.2f} kg CO2")
+            st.write(f"Avg Cost per Attendee: ${rec['Avg Cost per Attendee']:.2f}")
+
+        # Visualization
+        locations = [rec['Location'] for rec in recommendations]
+        costs = [rec['Total Cost'] for rec in recommendations]
+        emissions = [rec['Total Emissions'] for rec in recommendations]
+        
+        fig, ax = plt.subplots()
+        ax.bar(locations, costs, color='blue', label='Total Cost')
+        ax.axhline(y=budget, color='red', linestyle='--', label='Budget')
+        ax.set_ylabel('Cost ($)')
+        ax.set_title('Total Cost vs Budget')
+        ax.legend()
+        
+        st.pyplot(fig)
+        
+        fig, ax = plt.subplots()
+        ax.bar(locations, emissions, color='green', label='Total Emissions')
+        ax.set_ylabel('Emissions (kg CO2)')
+        ax.set_title('Total Emissions by Location')
+        ax.legend()
+        
+        st.pyplot(fig)
 
