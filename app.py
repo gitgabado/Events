@@ -143,6 +143,7 @@ if st.button("Generate Recommendations"):
         if 'postcode' not in df.columns:
             st.error("The uploaded CSV file must contain a 'postcode' column.")
         else:
+            st.write("Starting recommendation generation...")
             start_time = time.time()
             with st.spinner('Recommendation Engine at work ⏳'):
                 recommendations, num_attendees = generate_recommendations(
@@ -153,9 +154,13 @@ if st.button("Generate Recommendations"):
                 time.sleep(2)  # Simulate processing time
             end_time = time.time()
             processing_time = end_time - start_time
+            st.write("Recommendation generation complete.")
 
-            st.subheader("Top 3 Recommended Locations")
-            display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type)
+            if recommendations:
+                st.subheader("Top 3 Recommended Locations")
+                display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type)
+            else:
+                st.write("No recommendations could be generated based on the input criteria.")
 
             # Update and save usage data
             usage_data["usage_count"] += 1
