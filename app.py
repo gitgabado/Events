@@ -63,10 +63,11 @@ def validate_location(api_key, location):
         result = gmaps.geocode(location)
         if result:
             formatted_address = result[0]['formatted_address']
-            st.write(f"Validated location: {formatted_address}")
-            return formatted_address
+            if 'UK' in formatted_address:  # Only accept UK locations
+                return formatted_address
+            else:
+                return None
         else:
-            st.write(f"Location not found: {location}")
             return None
     except Exception as e:
         st.error(f"Error validating location {location}: {e}")
@@ -332,3 +333,4 @@ st.sidebar.markdown(f"**Total Events Planned:** {usage_data['usage_count']}")
 st.sidebar.markdown(f"**Total Attendees Processed:** {usage_data['total_attendees']}")
 st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted} minutes")
 st.sidebar.markdown(f"**Last Processing Time:** {last_processing_time_formatted} minutes")
+
