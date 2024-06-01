@@ -5,23 +5,19 @@ import matplotlib.pyplot as plt
 import time
 import json
 
-# Set the title and description of the app
 st.title("Event Location Planner")
+
 st.subheader("Plan your events efficiently with optimal locations 🌍🎉")
-st.markdown(
-    '''
-    This tool helps you to find the best locations for your events based on travel time, cost, and emissions.
-    Upload a CSV file with attendee postcodes, configure your cost and emission parameters, and get the top location recommendations for hosting your event.
-    '''
-)
+st.markdown("""
+This tool helps you to find the best locations for your events based on travel time, cost, and emissions. 
+Upload a CSV file with attendee postcodes, configure your cost and emission parameters, and get the top location recommendations for hosting your event.
+""")
 
 # Sidebar for settings and inputs
 st.sidebar.header("⚙️ Settings")
 
-# Google API Key input
 api_key = st.sidebar.text_input("Google API Key", type="password")
 
-# Budget settings
 st.sidebar.subheader("💸 Budget")
 budget_type = st.sidebar.radio("", ["Total Budget for the Event", "Average Budget per Attendee"])
 
@@ -34,14 +30,14 @@ else:
     budget_time = st.sidebar.number_input("Average Budget for Time per Attendee (minutes)", value=15)
     budget_emissions = st.sidebar.number_input("Average Budget for Emissions per Attendee (kg CO2)", value=20)
 
-# Travel cost and emissions lookup table
+# Cost and Emissions Lookup Table for Different Travel Modes
 st.sidebar.subheader("💡 Cost and Emissions Lookup Table")
 cost_per_km_car = st.sidebar.number_input("Cost per km by Car (£)", value=0.5)
 emission_per_km_car = st.sidebar.number_input("Emissions per km by Car (kg CO2)", value=0.2)
 cost_per_km_train = st.sidebar.number_input("Cost per km by Train (£)", value=0.3)
 emission_per_km_train = st.sidebar.number_input("Emissions per km by Train (kg CO2)", value=0.1)
 
-# Potential base locations input
+# Potential Base Locations Input
 st.sidebar.subheader("📍 Potential Base Locations")
 base_locations_input = st.sidebar.text_area("Enter base locations separated by commas", "London, Manchester, Birmingham")
 base_locations = [location.strip() for location in base_locations_input.split(",")]
@@ -141,7 +137,6 @@ if st.button("Generate Recommendations"):
         if 'postcode' not in df.columns:
             st.error("The uploaded CSV file must contain a 'postcode' column.")
         else:
-            st.write("Starting recommendation generation...")
             start_time = time.time()
             with st.spinner('Recommendation Engine at work ⏳'):
                 recommendations, num_attendees = generate_recommendations(
@@ -152,13 +147,9 @@ if st.button("Generate Recommendations"):
                 time.sleep(2)  # Simulate processing time
             end_time = time.time()
             processing_time = end_time - start_time
-            st.write("Recommendation generation complete.")
 
-            if recommendations:
-                st.subheader("Top 3 Recommended Locations")
-                display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type)
-            else:
-                st.write("No recommendations could be generated based on the input criteria.")
+            st.subheader("Top 3 Recommended Locations")
+            display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type)
 
             # Update and save usage data
             usage_data["usage_count"] += 1
