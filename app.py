@@ -1,13 +1,12 @@
 import streamlit as st
 import pandas as pd
 import googlemaps
-import plotly.graph_objs as go
+import matplotlib.pyplot as plt
 from io import StringIO
 import time
 import os
 import tempfile
 import json
-import matplotlib.pyplot as plt
 
 st.title("Event Location Planner")
 
@@ -43,7 +42,8 @@ emission_per_km_train = st.sidebar.number_input("Emissions per km by Train (kg C
 
 # Potential Base Locations Input
 st.sidebar.subheader("📍 Potential Base Locations")
-base_locations = st.sidebar.text_area("Enter base locations (one per line)")
+base_locations = st.sidebar.text_area("Enter base locations (one per line)", 
+                                      "London, UK\nManchester, UK\nBirmingham, UK\nLeeds, UK\nGlasgow, UK\nEdinburgh, UK\nBristol, UK\nLiverpool, UK\nNewcastle, UK\nSheffield, UK")
 
 # Upload Attendee Postcodes
 st.subheader("Upload Attendee Postcodes CSV")
@@ -63,13 +63,11 @@ def validate_location(api_key, location):
         result = gmaps.geocode(location)
         if result:
             formatted_address = result[0]['formatted_address']
-            if 'UK' in formatted_address or 'United Kingdom' in formatted_address:  # Only accept UK locations
-                return formatted_address
-            else:
-                return None
+            return formatted_address
         else:
             return None
     except Exception as e:
+        st.error(f"Error validating location {location}: {e}")
         return None
 
 # Function to calculate distances using Google Routes API
@@ -92,6 +90,7 @@ def calculate_distances(api_key, origins, destinations, travel_mode):
                     distances[origin][destination] = float('inf')
                     times[origin][destination] = float('inf')
             except Exception as e:
+                st.error(f"Error calculating distance from {origin} to {destination} with mode {travel_mode}: {e}")
                 distances[origin][destination] = float('inf')
                 times[origin][destination] = float('inf')
     return distances, times
@@ -114,42 +113,22 @@ def choose_travel_mode(api_key, origin, destination, cost_per_km_car, emission_p
         return 'driving'
     return 'transit'
 
-# Function to extract city names from postcodes
-def extract_city_names(api_key, postcodes):
-    gmaps = googlemaps.Client(key=api_key)
-    cities = []
-    for postcode in postcodes:
-        try:
-            result = gmaps.geocode(postcode)
-            if result:
-                address_components = result[0]['address_components']
-                for component in address_components:
-                    if 'locality' in component['types']:
-                        cities.append(component['long_name'])
-                        break  # Stop after finding the first locality component
-        except Exception as e:
-            continue
-    return list(set(cities))  # Return unique city names
-
 # Function to generate recommendations
 def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train, budget_cost, budget_time, budget_emissions, budget_type):
     origins = df['postcode'].tolist()
     valid_origins = [validate_location(api_key, origin) for origin in origins]
     valid_origins = [origin for origin in valid_origins if origin is not None]
     num_attendees = len(valid_origins)
-    invalid_attendees = len(origins) - num_attendees
-
+    
     if not base_locations.strip():
-        # Extract unique city names from the attendee postcodes
-        unique_cities = extract_city_names(api_key, valid_origins)
-        destinations = unique_cities
+        # If no base locations provided, use attendee locations as potential base locations
+        destinations = valid_origins
     else:
         destinations = base_locations.split('\n')
     
     valid_destinations = [validate_location(api_key, destination) for destination in destinations]
     valid_destinations = [destination for destination in valid_destinations if destination is not None]
-    invalid_destinations = len(destinations) - len(valid_destinations)
-
+    
     results = []
     for location in valid_destinations:
         total_cost = 0
@@ -169,6 +148,7 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
             time = times[origin][location]
             
             if distance == float('inf') or time == float('inf'):
+                st.error(f"Error calculating distance or time for origin {origin} to destination {location} with mode {travel_mode}")
                 continue
 
             total_cost += distance * cost_per_km
@@ -187,39 +167,38 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
         total_time_hours, total_time_minutes = divmod(total_time, 60)
         
         results.append({
-            "Location": location.split(",")[0],  # Extracting city name
-            "Avg Cost per Attendee (£)": int(avg_cost_per_attendee),
-            "Avg Emissions per Attendee (kg CO2)": int(avg_emissions_per_attendee),
-            "Avg Time per Attendee": f"{int(avg_time_per_attendee // 60)}h {int(avg_time_per_attendee % 60)}m",
+            "Location": location,
             "Total Cost (£)": int(total_cost),
             "Total Emissions (kg CO2)": int(total_emissions),
-            "Total Time": f"{int(total_time_hours)}h {int(total_time_minutes)}m"
+            "Total Time": f"{int(total_time_hours)}h {int(total_time_minutes)}m",
+            "Avg Cost per Attendee (£)": int(avg_cost_per_attendee),
+            "Avg Emissions per Attendee (kg CO2)": int(avg_emissions_per_attendee),
+            "Avg Time per Attendee": f"{int(avg_time_per_attendee // 60)}h {int(avg_time_per_attendee % 60)}m"
         })
     
-        results = sorted(results, key=lambda x: (x["Avg Cost per Attendee (£)"], x["Avg Emissions per Attendee (kg CO2)"]))
-    return results[:3], num_attendees, invalid_attendees, len(valid_destinations), invalid_destinations
+    results = sorted(results, key=lambda x: (x["Total Cost (£)"], x["Total Emissions (kg CO2)"]))
+    return results[:3], num_attendees
 
-def display_recommendations_and_charts(recommendations, num_attendees, invalid_attendees, valid_destinations_count, invalid_destinations_count, budget_cost, budget_time, budget_emissions, budget_type):
+def display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type):
     df_recommendations = pd.DataFrame(recommendations)
     df_recommendations.index = df_recommendations.index + 1  # Make index start from 1
 
-    st.write(df_recommendations)
+    # Styling the DataFrame for a premium look
+    styled_df = df_recommendations.style.set_table_styles(
+        [{'selector': 'th', 'props': [('font-size', '14pt'), ('text-align', 'center')]},
+         {'selector': 'td', 'props': [('font-size', '12pt'), ('text-align', 'center')]}]
+    ).set_properties(**{
+        'background-color': 'white',
+        'color': 'black',
+        'border-color': 'black'
+    }).hide(axis='index')
 
-    # Additional details about the number of attendees
-    st.markdown(f"**Number of Attendees Processed: {num_attendees}**")
-    st.markdown(f"**Invalid Attendees: {invalid_attendees}**")
-    st.markdown(f"**Valid Potential Locations Considered: {valid_destinations_count}**")
-    st.markdown(f"**Invalid Potential Locations: {invalid_destinations_count}**")
-    st.markdown("This number reflects the total attendees considered to provide these location recommendations based on the provided postcodes.")
+    st.write(styled_df.to_html(), unsafe_allow_html=True)
 
-    # Create charts
     locations = [rec['Location'] for rec in recommendations]
-    avg_costs = [rec['Avg Cost per Attendee (£)'] for rec in recommendations]
-    avg_emissions = [rec['Avg Emissions per Attendee (kg CO2)'] for rec in recommendations]
-    avg_times = [int(rec['Avg Time per Attendee'].split('h')[0]) * 60 + int(rec['Avg Time per Attendee'].split('h')[1].replace('m', '')) for rec in recommendations]
-    total_costs = [rec['Total Cost (£)'] for rec in recommendations]
-    total_emissions = [rec['Total Emissions (kg CO2)'] for rec in recommendations]
-    total_times = [int(rec['Total Time'].split('h')[0]) * 60 + int(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
+    costs = [rec['Avg Cost per Attendee (£)'] if budget_type == "Average Budget per Attendee" else rec['Total Cost (£)'] for rec in recommendations]
+    emissions = [rec['Avg Emissions per Attendee (kg CO2)'] if budget_type == "Average Budget per Attendee" else rec['Total Emissions (kg CO2)'] for rec in recommendations]
+    times = [int(rec['Avg Time per Attendee'].split('h')[0])*60 + int(rec['Avg Time per Attendee'].split('h')[1].replace('m', '')) if budget_type == "Average Budget per Attendee" else float(rec['Total Time'].split('h')[0])*60 + float(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
 
     if budget_type == "Total Budget for the Event":
         budget_cost_label = "Total Cost (£)"
@@ -232,7 +211,7 @@ def display_recommendations_and_charts(recommendations, num_attendees, invalid_a
 
     with tempfile.TemporaryDirectory() as temp_dir:
         fig, ax = plt.subplots()
-        ax.bar(locations, avg_costs, color='blue', label=budget_cost_label)
+        ax.bar(locations, costs, color='blue', label=budget_cost_label)
         ax.axhline(y=budget_cost, color='red', linestyle='--', label=f'Budgeted {budget_cost_label}')
         ax.set_ylabel(budget_cost_label)
         ax.set_title(f'{budget_cost_label} vs Budget')
@@ -243,7 +222,7 @@ def display_recommendations_and_charts(recommendations, num_attendees, invalid_a
         st.pyplot(fig)
 
         fig, ax = plt.subplots()
-        ax.bar(locations, avg_emissions, color='green', label=budget_emissions_label)
+        ax.bar(locations, emissions, color='green', label=budget_emissions_label)
         ax.axhline(y=budget_emissions, color='red', linestyle='--', label=f'Budgeted {budget_emissions_label}')
         ax.set_ylabel(budget_emissions_label)
         ax.set_title(f'{budget_emissions_label} vs Budget')
@@ -254,7 +233,7 @@ def display_recommendations_and_charts(recommendations, num_attendees, invalid_a
         st.pyplot(fig)
 
         fig, ax = plt.subplots()
-        ax.bar(locations, avg_times, color='purple', label=budget_time_label)
+        ax.bar(locations, times, color='purple', label=budget_time_label)
         ax.axhline(y=budget_time, color='red', linestyle='--', label=f'Budgeted {budget_time_label}')
         ax.set_ylabel(budget_time_label)
         ax.set_title(f'{budget_time_label} vs Budget')
@@ -272,7 +251,8 @@ def display_recommendations_and_charts(recommendations, num_attendees, invalid_a
     2. **Distance and Time Calculation**: The Google Maps API is used to calculate the travel distances and times between each attendee's postcode and each potential event location. Both car and train travel modes are considered.
     3. **Travel Mode Selection**: The default travel mode is train. If the train travel time is more than 1.5 times the car travel time, car travel is selected instead.
     4. **Cost and Emissions Calculation**: Based on the selected travel mode, the total travel cost and emissions are calculated using the provided cost and emissions per km values. Average costs and emissions per attendee are also calculated.
-    5. **Recommendation Ranking**: The potential event locations are ranked based on average cost and emissions per attendee, with the top three locations being recommended.
+    5. **Recommendation Ranking**: The potential event locations are ranked based on total cost and emissions, with the top three locations being recommended.
+    6. **No Base Locations Provided**: If no potential base locations are provided, the tool uses the attendee locations as potential base locations and recommends the best location based on the same criteria.
 
     ### Assumptions Made:
     - **Travel Mode**: Train is the default travel mode. Car travel is considered only if it significantly reduces travel time (less than 1.5 times the train travel time).
@@ -292,7 +272,7 @@ def load_usage_data():
         with open(usage_count_file, "r") as f:
             return json.load(f)
     else:
-        return {"usage_count": 0, "total_attendees": 0, "total_time": 0, "last_processing_time": 0}
+        return {"usage_count": 0, "total_attendees": 0, "total_time": 0}
 
 # Function to save usage data
 def save_usage_data(data):
@@ -307,33 +287,31 @@ if st.button("Generate Recommendations"):
         st.error("Please enter your Google API Key in the settings.")
     elif not uploaded_file:
         st.error("Please upload a CSV file with attendee postcodes.")
+    elif 'postcode' not in df.columns:
+        st.error("The uploaded CSV file must contain a 'postcode' column.")
     else:
         start_time = time.time()
-        with st.spinner('Recommendation Engine at work ⏳🚂...'):
-            recommendations, num_attendees, invalid_attendees, valid_destinations_count, invalid_destinations_count = generate_recommendations(df, base_locations, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train, budget_cost, budget_time, budget_emissions, budget_type)
+        with st.spinner('Recommendation Engine at work ⏳'):
+            recommendations, num_attendees = generate_recommendations(df, base_locations, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train, budget_cost, budget_time, budget_emissions, budget_type)
             time.sleep(2)  # Simulate processing time
         end_time = time.time()
         processing_time = end_time - start_time
         
         st.subheader("Top 3 Recommended Locations")
-        display_recommendations_and_charts(recommendations, num_attendees, invalid_attendees, valid_destinations_count, invalid_destinations_count, budget_cost, budget_time, budget_emissions, budget_type)
+        display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type)
 
         # Update and save usage data
         usage_data["usage_count"] += 1
         usage_data["total_attendees"] += num_attendees
         usage_data["total_time"] += processing_time
-        usage_data["last_processing_time"] = processing_time
         save_usage_data(usage_data)
 
 # Display cumulative usage data in the sidebar
 average_time = usage_data["total_time"] / usage_data["usage_count"] if usage_data["usage_count"] > 0 else 0
 average_time_formatted = time.strftime("%M:%S", time.gmtime(average_time))
-last_processing_time_formatted = time.strftime("%M:%S", time.gmtime(usage_data["last_processing_time"]))
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("📊 Usage Statistics")
 st.sidebar.markdown(f"**Total Events Planned:** {usage_data['usage_count']}")
 st.sidebar.markdown(f"**Total Attendees Processed:** {usage_data['total_attendees']}")
-st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted} min:sec")
-st.sidebar.markdown(f"**Last Processing Time:** {last_processing_time_formatted} min:sec")
-
+st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted} minutes")
