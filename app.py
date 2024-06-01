@@ -1,12 +1,13 @@
 import streamlit as st
 import pandas as pd
 import googlemaps
-import matplotlib.pyplot as plt
+import plotly.graph_objs as go
 from io import StringIO
 import time
 import os
 import tempfile
 import json
+import matplotlib.pyplot as plt
 
 st.title("Event Location Planner")
 
@@ -42,8 +43,7 @@ emission_per_km_train = st.sidebar.number_input("Emissions per km by Train (kg C
 
 # Potential Base Locations Input
 st.sidebar.subheader("📍 Potential Base Locations")
-base_locations = st.sidebar.text_area("Enter base locations (one per line)", 
-                                      "London, UK\nManchester, UK\nBirmingham, UK\nLeeds, UK\nGlasgow, UK\nEdinburgh, UK\nBristol, UK\nLiverpool, UK\nNewcastle, UK\nSheffield, UK")
+base_locations = st.sidebar.text_area("Enter base locations (one per line)")
 
 # Upload Attendee Postcodes
 st.subheader("Upload Attendee Postcodes CSV")
@@ -63,8 +63,10 @@ def validate_location(api_key, location):
         result = gmaps.geocode(location)
         if result:
             formatted_address = result[0]['formatted_address']
+            st.write(f"Validated location: {formatted_address}")
             return formatted_address
         else:
+            st.write(f"Location not found: {location}")
             return None
     except Exception as e:
         st.error(f"Error validating location {location}: {e}")
@@ -113,6 +115,23 @@ def choose_travel_mode(api_key, origin, destination, cost_per_km_car, emission_p
         return 'driving'
     return 'transit'
 
+# Function to extract city names from postcodes
+def extract_city_names(api_key, postcodes):
+    gmaps = googlemaps.Client(key=api_key)
+    cities = []
+    for postcode in postcodes:
+        try:
+            result = gmaps.geocode(postcode)
+            if result:
+                address_components = result[0]['address_components']
+                for component in address_components:
+                    if 'locality' in component['types']:
+                        cities.append(component['long_name'])
+                        break  # Stop after finding the first locality component
+        except Exception as e:
+            st.error(f"Error extracting city name from postcode {postcode}: {e}")
+    return list(set(cities))  # Return unique city names
+
 # Function to generate recommendations
 def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train, budget_cost, budget_time, budget_emissions, budget_type):
     origins = df['postcode'].tolist()
@@ -121,13 +140,16 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
     num_attendees = len(valid_origins)
     
     if not base_locations.strip():
-        # If no base locations provided, use attendee locations as potential base locations
-        destinations = valid_origins
+        # Extract unique city names from the attendee postcodes
+        unique_cities = extract_city_names(api_key, valid_origins)
+        destinations = unique_cities
     else:
         destinations = base_locations.split('\n')
     
     valid_destinations = [validate_location(api_key, destination) for destination in destinations]
     valid_destinations = [destination for destination in valid_destinations if destination is not None]
+    
+    st.write("Valid Destinations: ", valid_destinations)
     
     results = []
     for location in valid_destinations:
@@ -167,7 +189,7 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
         total_time_hours, total_time_minutes = divmod(total_time, 60)
         
         results.append({
-            "Location": location,
+            "Location": location.split(",")[0],  # Extracting city name
             "Total Cost (£)": int(total_cost),
             "Total Emissions (kg CO2)": int(total_emissions),
             "Total Time": f"{int(total_time_hours)}h {int(total_time_minutes)}m",
@@ -183,22 +205,17 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
     df_recommendations = pd.DataFrame(recommendations)
     df_recommendations.index = df_recommendations.index + 1  # Make index start from 1
 
-    # Styling the DataFrame for a premium look
-    styled_df = df_recommendations.style.set_table_styles(
-        [{'selector': 'th', 'props': [('font-size', '14pt'), ('text-align', 'center')]},
-         {'selector': 'td', 'props': [('font-size', '12pt'), ('text-align', 'center')]}]
-    ).set_properties(**{
-        'background-color': 'white',
-        'color': 'black',
-        'border-color': 'black'
-    }).hide(axis='index')
+    st.write(df_recommendations)
 
-    st.write(styled_df.to_html(), unsafe_allow_html=True)
+    # Additional details about the number of attendees
+    st.markdown(f"**Number of Attendees Processed: {num_attendees}**")
+    st.markdown("This number reflects the total attendees considered to provide these location recommendations based on the provided postcodes.")
 
+    # Create charts
     locations = [rec['Location'] for rec in recommendations]
     costs = [rec['Avg Cost per Attendee (£)'] if budget_type == "Average Budget per Attendee" else rec['Total Cost (£)'] for rec in recommendations]
     emissions = [rec['Avg Emissions per Attendee (kg CO2)'] if budget_type == "Average Budget per Attendee" else rec['Total Emissions (kg CO2)'] for rec in recommendations]
-    times = [int(rec['Avg Time per Attendee'].split('h')[0])*60 + int(rec['Avg Time per Attendee'].split('h')[1].replace('m', '')) if budget_type == "Average Budget per Attendee" else float(rec['Total Time'].split('h')[0])*60 + float(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
+    times = [int(rec['Avg Time per Attendee'].split('h')[0]) * 60 + int(rec['Avg Time per Attendee'].split('h')[1].replace('m', '')) if budget_type == "Average Budget per Attendee" else float(rec['Total Time'].split('h')[0]) * 60 + float(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
 
     if budget_type == "Total Budget for the Event":
         budget_cost_label = "Total Cost (£)"
@@ -252,7 +269,6 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
     3. **Travel Mode Selection**: The default travel mode is train. If the train travel time is more than 1.5 times the car travel time, car travel is selected instead.
     4. **Cost and Emissions Calculation**: Based on the selected travel mode, the total travel cost and emissions are calculated using the provided cost and emissions per km values. Average costs and emissions per attendee are also calculated.
     5. **Recommendation Ranking**: The potential event locations are ranked based on total cost and emissions, with the top three locations being recommended.
-    6. **No Base Locations Provided**: If no potential base locations are provided, the tool uses the attendee locations as potential base locations and recommends the best location based on the same criteria.
 
     ### Assumptions Made:
     - **Travel Mode**: Train is the default travel mode. Car travel is considered only if it significantly reduces travel time (less than 1.5 times the train travel time).
@@ -272,7 +288,7 @@ def load_usage_data():
         with open(usage_count_file, "r") as f:
             return json.load(f)
     else:
-        return {"usage_count": 0, "total_attendees": 0, "total_time": 0}
+        return {"usage_count": 0, "total_attendees": 0, "total_time": 0, "last_processing_time": 0}
 
 # Function to save usage data
 def save_usage_data(data):
@@ -287,11 +303,9 @@ if st.button("Generate Recommendations"):
         st.error("Please enter your Google API Key in the settings.")
     elif not uploaded_file:
         st.error("Please upload a CSV file with attendee postcodes.")
-    elif 'postcode' not in df.columns:
-        st.error("The uploaded CSV file must contain a 'postcode' column.")
     else:
         start_time = time.time()
-        with st.spinner('Recommendation Engine at work ⏳'):
+        with st.spinner('Recommendation Engine at work ⏳🚂...'):
             recommendations, num_attendees = generate_recommendations(df, base_locations, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train, budget_cost, budget_time, budget_emissions, budget_type)
             time.sleep(2)  # Simulate processing time
         end_time = time.time()
@@ -304,14 +318,17 @@ if st.button("Generate Recommendations"):
         usage_data["usage_count"] += 1
         usage_data["total_attendees"] += num_attendees
         usage_data["total_time"] += processing_time
+        usage_data["last_processing_time"] = processing_time
         save_usage_data(usage_data)
 
 # Display cumulative usage data in the sidebar
 average_time = usage_data["total_time"] / usage_data["usage_count"] if usage_data["usage_count"] > 0 else 0
 average_time_formatted = time.strftime("%M:%S", time.gmtime(average_time))
+last_processing_time_formatted = time.strftime("%M:%S", time.gmtime(usage_data["last_processing_time"]))
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("📊 Usage Statistics")
 st.sidebar.markdown(f"**Total Events Planned:** {usage_data['usage_count']}")
 st.sidebar.markdown(f"**Total Attendees Processed:** {usage_data['total_attendees']}")
 st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted} minutes")
+st.sidebar.markdown(f"**Last Processing Time:** {last_processing_time_formatted} minutes")
