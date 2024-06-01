@@ -137,7 +137,8 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
     valid_origins = [validate_location(api_key, origin) for origin in origins]
     valid_origins = [origin for origin in valid_origins if origin is not None]
     num_attendees = len(valid_origins)
-    
+    invalid_attendees = len(origins) - num_attendees
+
     if not base_locations.strip():
         # Extract unique city names from the attendee postcodes
         unique_cities = extract_city_names(api_key, valid_origins)
@@ -147,7 +148,8 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
     
     valid_destinations = [validate_location(api_key, destination) for destination in destinations]
     valid_destinations = [destination for destination in valid_destinations if destination is not None]
-    
+    invalid_destinations = len(destinations) - len(valid_destinations)
+
     results = []
     for location in valid_destinations:
         total_cost = 0
@@ -186,28 +188,18 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
         
         results.append({
             "Location": location.split(",")[0],  # Extracting city name
-            "Total Cost (£)": int(total_cost),
-            "Total Emissions (kg CO2)": int(total_emissions),
-            "Total Time": f"{int(total_time_hours)}h {int(total_time_minutes)}m",
             "Avg Cost per Attendee (£)": int(avg_cost_per_attendee),
             "Avg Emissions per Attendee (kg CO2)": int(avg_emissions_per_attendee),
-            "Avg Time per Attendee": f"{int(avg_time_per_attendee // 60)}h {int(avg_time_per_attendee % 60)}m"
+            "Avg Time per Attendee": f"{int(avg_time_per_attendee // 60)}h {int(avg_time_per_attendee % 60)}m",
+            "Total Cost (£)": int(total_cost),
+            "Total Emissions (kg CO2)": int(total_emissions),
+            "Total Time": f"{int(total_time_hours)}h {int(total_time_minutes)}m"
         })
     
-    results = sorted(results, key=lambda x: (x["Total Cost (£)"], x["Total Emissions (kg CO2)"]))
-    return results[:3], num_attendees
+        results = sorted(results, key=lambda x: (x["Avg Cost per Attendee (£)"], x["Avg Emissions per Attendee (kg CO2)"]))
+    return results[:3], num_attendees, invalid_attendees, len(valid_destinations), invalid_destinations
 
-def create_histogram_tooltip(data, title, xlabel, ylabel):
-    fig = go.Figure(data=[go.Histogram(x=data)])
-    fig.update_layout(
-        title=title,
-        xaxis_title=xlabel,
-        yaxis_title=ylabel,
-        template='simple_white'
-    )
-    return fig
-
-def display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type):
+def display_recommendations_and_charts(recommendations, num_attendees, invalid_attendees, valid_destinations_count, invalid_destinations_count, budget_cost, budget_time, budget_emissions, budget_type):
     df_recommendations = pd.DataFrame(recommendations)
     df_recommendations.index = df_recommendations.index + 1  # Make index start from 1
 
@@ -215,13 +207,19 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
 
     # Additional details about the number of attendees
     st.markdown(f"**Number of Attendees Processed: {num_attendees}**")
+    st.markdown(f"**Invalid Attendees: {invalid_attendees}**")
+    st.markdown(f"**Valid Potential Locations Considered: {valid_destinations_count}**")
+    st.markdown(f"**Invalid Potential Locations: {invalid_destinations_count}**")
     st.markdown("This number reflects the total attendees considered to provide these location recommendations based on the provided postcodes.")
 
     # Create charts
     locations = [rec['Location'] for rec in recommendations]
-    costs = [rec['Avg Cost per Attendee (£)'] if budget_type == "Average Budget per Attendee" else rec['Total Cost (£)'] for rec in recommendations]
-    emissions = [rec['Avg Emissions per Attendee (kg CO2)'] if budget_type == "Average Budget per Attendee" else rec['Total Emissions (kg CO2)'] for rec in recommendations]
-    times = [int(rec['Avg Time per Attendee'].split('h')[0]) * 60 + int(rec['Avg Time per Attendee'].split('h')[1].replace('m', '')) if budget_type == "Average Budget per Attendee" else float(rec['Total Time'].split('h')[0]) * 60 + float(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
+    avg_costs = [rec['Avg Cost per Attendee (£)'] for rec in recommendations]
+    avg_emissions = [rec['Avg Emissions per Attendee (kg CO2)'] for rec in recommendations]
+    avg_times = [int(rec['Avg Time per Attendee'].split('h')[0]) * 60 + int(rec['Avg Time per Attendee'].split('h')[1].replace('m', '')) for rec in recommendations]
+    total_costs = [rec['Total Cost (£)'] for rec in recommendations]
+    total_emissions = [rec['Total Emissions (kg CO2)'] for rec in recommendations]
+    total_times = [int(rec['Total Time'].split('h')[0]) * 60 + int(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
 
     if budget_type == "Total Budget for the Event":
         budget_cost_label = "Total Cost (£)"
@@ -232,18 +230,9 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
         budget_time_label = "Avg Time per Attendee (minutes)"
         budget_emissions_label = "Avg Emissions per Attendee (kg CO2)"
 
-    # Create tooltips with histograms
-    cost_histogram = create_histogram_tooltip(costs, f'{budget_cost_label} Distribution', 'Cost', 'Frequency')
-    emission_histogram = create_histogram_tooltip(emissions, f'{budget_emissions_label} Distribution', 'Emissions', 'Frequency')
-    time_histogram = create_histogram_tooltip(times, f'{budget_time_label} Distribution', 'Time', 'Frequency')
-
-    st.plotly_chart(cost_histogram)
-    st.plotly_chart(emission_histogram)
-    st.plotly_chart(time_histogram)
-
     with tempfile.TemporaryDirectory() as temp_dir:
         fig, ax = plt.subplots()
-        ax.bar(locations, costs, color='blue', label=budget_cost_label)
+        ax.bar(locations, avg_costs, color='blue', label=budget_cost_label)
         ax.axhline(y=budget_cost, color='red', linestyle='--', label=f'Budgeted {budget_cost_label}')
         ax.set_ylabel(budget_cost_label)
         ax.set_title(f'{budget_cost_label} vs Budget')
@@ -254,7 +243,7 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
         st.pyplot(fig)
 
         fig, ax = plt.subplots()
-        ax.bar(locations, emissions, color='green', label=budget_emissions_label)
+        ax.bar(locations, avg_emissions, color='green', label=budget_emissions_label)
         ax.axhline(y=budget_emissions, color='red', linestyle='--', label=f'Budgeted {budget_emissions_label}')
         ax.set_ylabel(budget_emissions_label)
         ax.set_title(f'{budget_emissions_label} vs Budget')
@@ -265,7 +254,7 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
         st.pyplot(fig)
 
         fig, ax = plt.subplots()
-        ax.bar(locations, times, color='purple', label=budget_time_label)
+        ax.bar(locations, avg_times, color='purple', label=budget_time_label)
         ax.axhline(y=budget_time, color='red', linestyle='--', label=f'Budgeted {budget_time_label}')
         ax.set_ylabel(budget_time_label)
         ax.set_title(f'{budget_time_label} vs Budget')
@@ -283,7 +272,7 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
     2. **Distance and Time Calculation**: The Google Maps API is used to calculate the travel distances and times between each attendee's postcode and each potential event location. Both car and train travel modes are considered.
     3. **Travel Mode Selection**: The default travel mode is train. If the train travel time is more than 1.5 times the car travel time, car travel is selected instead.
     4. **Cost and Emissions Calculation**: Based on the selected travel mode, the total travel cost and emissions are calculated using the provided cost and emissions per km values. Average costs and emissions per attendee are also calculated.
-    5. **Recommendation Ranking**: The potential event locations are ranked based on total cost and emissions, with the top three locations being recommended.
+    5. **Recommendation Ranking**: The potential event locations are ranked based on average cost and emissions per attendee, with the top three locations being recommended.
 
     ### Assumptions Made:
     - **Travel Mode**: Train is the default travel mode. Car travel is considered only if it significantly reduces travel time (less than 1.5 times the train travel time).
@@ -321,13 +310,13 @@ if st.button("Generate Recommendations"):
     else:
         start_time = time.time()
         with st.spinner('Recommendation Engine at work ⏳🚂...'):
-            recommendations, num_attendees = generate_recommendations(df, base_locations, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train, budget_cost, budget_time, budget_emissions, budget_type)
+            recommendations, num_attendees, invalid_attendees, valid_destinations_count, invalid_destinations_count = generate_recommendations(df, base_locations, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train, budget_cost, budget_time, budget_emissions, budget_type)
             time.sleep(2)  # Simulate processing time
         end_time = time.time()
         processing_time = end_time - start_time
         
         st.subheader("Top 3 Recommended Locations")
-        display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type)
+        display_recommendations_and_charts(recommendations, num_attendees, invalid_attendees, valid_destinations_count, invalid_destinations_count, budget_cost, budget_time, budget_emissions, budget_type)
 
         # Update and save usage data
         usage_data["usage_count"] += 1
@@ -345,6 +334,6 @@ st.sidebar.markdown("---")
 st.sidebar.subheader("📊 Usage Statistics")
 st.sidebar.markdown(f"**Total Events Planned:** {usage_data['usage_count']}")
 st.sidebar.markdown(f"**Total Attendees Processed:** {usage_data['total_attendees']}")
-st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted} minutes")
-st.sidebar.markdown(f"**Last Processing Time:** {last_processing_time_formatted} minutes")
+st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted} min:sec")
+st.sidebar.markdown(f"**Last Processing Time:** {last_processing_time_formatted} min:sec")
 
