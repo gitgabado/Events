@@ -182,7 +182,7 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
 
 def display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type):
     df_recommendations = pd.DataFrame(recommendations)
-        df_recommendations.index = df_recommendations.index + 1  # Make index start from 1
+    df_recommendations.index = df_recommendations.index + 1  # Make index start from 1
 
     st.write(df_recommendations)
 
