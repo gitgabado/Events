@@ -190,7 +190,7 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
     st.markdown("This number reflects the total attendees considered to provide these location recommendations based on the provided postcodes.")
 
     # Create charts
-        locations = [rec['Location'] for rec in recommendations]
+    locations = [rec['Location'] for rec in recommendations]
     costs = [rec['Avg Cost per Attendee (£)'] if budget_type == "Average Budget per Attendee" else rec['Total Cost (£)'] for rec in recommendations]
     emissions = [rec['Avg Emissions per Attendee (kg CO2)'] if budget_type == "Average Budget per Attendee" else rec['Total Emissions (kg CO2)'] for rec in recommendations]
     times = [int(rec['Avg Time per Attendee'].split('h')[0]) * 60 + int(rec['Avg Time per Attendee'].split('h')[1].replace('m', '')) if budget_type == "Average Budget per Attendee" else float(rec['Total Time'].split('h')[0]) * 60 + float(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
