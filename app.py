@@ -2,9 +2,7 @@ import streamlit as st
 import pandas as pd
 import googlemaps
 import matplotlib.pyplot as plt
-from io import StringIO
 import time
-import os
 import json
 
 # Set the title and description of the app
