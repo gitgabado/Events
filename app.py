@@ -1,4 +1,200 @@
-Cost (£)"], x["Total Emissions (kg CO2)"]))
+import streamlit as st
+import pandas as pd
+import googlemaps
+import plotly.graph_objs as go
+from io import StringIO
+import time
+import os
+import tempfile
+import json
+import matplotlib.pyplot as plt
+
+st.title("Event Location Planner")
+
+st.subheader("Plan your events efficiently with optimal locations 🌍🎉")
+st.markdown("""
+This tool helps you to find the best locations for your events based on travel time, cost, and emissions. 
+Upload a CSV file with attendee postcodes, configure your cost and emission parameters, and get the top location recommendations for hosting your event.
+""")
+
+# Sidebar for settings and inputs
+st.sidebar.header("⚙️ Settings")
+
+api_key = st.sidebar.text_input("Google API Key", type="password")
+
+st.sidebar.markdown("**💸 Budget**")
+budget_type = st.sidebar.radio("", ["Total Budget for the Event", "Average Budget per Attendee"])
+
+if budget_type == "Total Budget for the Event":
+    budget_cost = st.sidebar.number_input("Total Budget for Costs (£)", value=1000)
+    budget_time = st.sidebar.number_input("Total Budget for Time (minutes)", value=120)
+    budget_emissions = st.sidebar.number_input("Total Budget for Emissions (kg CO2)", value=200)
+else:
+    budget_cost = st.sidebar.number_input("Average Budget for Costs per Attendee (£)", value=100)
+    budget_time = st.sidebar.number_input("Average Budget for Time per Attendee (minutes)", value=15)
+    budget_emissions = st.sidebar.number_input("Average Budget for Emissions per Attendee (kg CO2)", value=20)
+
+# Cost and Emissions Lookup Table for Different Travel Modes
+st.sidebar.subheader("💡 Cost and Emissions Lookup Table")
+cost_per_km_car = st.sidebar.number_input("Cost per km by Car (£)", value=0.5)
+emission_per_km_car = st.sidebar.number_input("Emissions per km by Car (kg CO2)", value=0.2)
+cost_per_km_train = st.sidebar.number_input("Cost per km by Train (£)", value=0.3)
+emission_per_km_train = st.sidebar.number_input("Emissions per km by Train (kg CO2)", value=0.1)
+
+# Potential Base Locations Input
+st.sidebar.subheader("📍 Potential Base Locations")
+base_locations = st.sidebar.text_area("Enter base locations (one per line)")
+
+# Upload Attendee Postcodes
+st.subheader("Upload Attendee Postcodes CSV")
+uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
+
+if uploaded_file:
+    df = pd.read_csv(uploaded_file)
+    if 'postcode' not in df.columns:
+        st.error("The uploaded CSV file must contain a 'postcode' column.")
+    else:
+        st.write("Attendee Postcodes:", df)
+
+# Function to validate and format locations
+def validate_location(api_key, location):
+    gmaps = googlemaps.Client(key=api_key)
+    try:
+        result = gmaps.geocode(location)
+        if result:
+            formatted_address = result[0]['formatted_address']
+            if 'UK' in formatted_address or 'United Kingdom' in formatted_address:  # Only accept UK locations
+                return formatted_address
+            else:
+                return None
+        else:
+            return None
+    except Exception as e:
+        return None
+
+# Function to calculate distances using Google Routes API
+def calculate_distances(api_key, origins, destinations, travel_mode):
+    gmaps = googlemaps.Client(key=api_key)
+    distances = {}
+    times = {}
+    for origin in origins:
+        distances[origin] = {}
+        times[origin] = {}
+        for destination in destinations:
+            try:
+                result = gmaps.directions(origin, destination, mode=travel_mode)
+                if result and result[0]['legs']:
+                    distance = result[0]['legs'][0]['distance']['value'] / 1000  # in km
+                    time = result[0]['legs'][0]['duration']['value'] / 60  # in minutes
+                    distances[origin][destination] = distance
+                    times[origin][destination] = time
+                else:
+                    distances[origin][destination] = float('inf')
+                    times[origin][destination] = float('inf')
+            except Exception as e:
+                distances[origin][destination] = float('inf')
+                times[origin][destination] = float('inf')
+    return distances, times
+
+# Function to choose travel mode based on conditions
+def choose_travel_mode(api_key, origin, destination, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train):
+    car_distances, car_times = calculate_distances(api_key, [origin], [destination], 'driving')
+    train_distances, train_times = calculate_distances(api_key, [origin], [destination], 'transit')
+    
+    car_time = car_times[origin][destination]
+    train_time = train_times[origin][destination]
+
+    if car_time == float('inf') and train_time == float('inf'):
+        return 'transit'  # Default to train if both are unavailable
+    if car_time == float('inf'):
+        return 'transit'
+    if train_time == float('inf'):
+        return 'driving'
+    if train_time > 1.5 * car_time:
+        return 'driving'
+    return 'transit'
+
+# Function to extract city names from postcodes
+def extract_city_names(api_key, postcodes):
+    gmaps = googlemaps.Client(key=api_key)
+    cities = []
+    for postcode in postcodes:
+        try:
+            result = gmaps.geocode(postcode)
+            if result:
+                address_components = result[0]['address_components']
+                for component in address_components:
+                    if 'locality' in component['types']:
+                        cities.append(component['long_name'])
+                        break  # Stop after finding the first locality component
+        except Exception as e:
+            continue
+    return list(set(cities))  # Return unique city names
+
+# Function to generate recommendations
+def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train, budget_cost, budget_time, budget_emissions, budget_type):
+    origins = df['postcode'].tolist()
+    valid_origins = [validate_location(api_key, origin) for origin in origins]
+    valid_origins = [origin for origin in valid_origins if origin is not None]
+    num_attendees = len(valid_origins)
+    
+    if not base_locations.strip():
+        # Extract unique city names from the attendee postcodes
+        unique_cities = extract_city_names(api_key, valid_origins)
+        destinations = unique_cities
+    else:
+        destinations = base_locations.split('\n')
+    
+    valid_destinations = [validate_location(api_key, destination) for destination in destinations]
+    valid_destinations = [destination for destination in valid_destinations if destination is not None]
+    
+    results = []
+    for location in valid_destinations:
+        total_cost = 0
+        total_emissions = 0
+        total_time = 0
+        for origin in valid_origins:
+            travel_mode = choose_travel_mode(api_key, origin, location, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train)
+            if travel_mode == 'driving':
+                cost_per_km = cost_per_km_car
+                emission_per_km = emission_per_km_car
+            else:
+                cost_per_km = cost_per_km_train
+                emission_per_km = emission_per_km_train
+            
+            distances, times = calculate_distances(api_key, [origin], [location], travel_mode)
+            distance = distances[origin][location]
+            time = times[origin][location]
+            
+            if distance == float('inf') or time == float('inf'):
+                continue
+
+            total_cost += distance * cost_per_km
+            total_emissions += distance * emission_per_km
+            total_time += time
+        
+        if num_attendees == 0:
+            avg_cost_per_attendee = 0
+            avg_emissions_per_attendee = 0
+            avg_time_per_attendee = 0
+        else:
+            avg_cost_per_attendee = total_cost / num_attendees
+            avg_emissions_per_attendee = total_emissions / num_attendees
+            avg_time_per_attendee = total_time / num_attendees
+        
+        total_time_hours, total_time_minutes = divmod(total_time, 60)
+        
+        results.append({
+            "Location": location.split(",")[0],  # Extracting city name
+            "Total Cost (£)": int(total_cost),
+            "Total Emissions (kg CO2)": int(total_emissions),
+            "Total Time": f"{int(total_time_hours)}h {int(total_time_minutes)}m",
+            "Avg Cost per Attendee (£)": int(avg_cost_per_attendee),
+            "Avg Emissions per Attendee (kg CO2)": int(avg_emissions_per_attendee),
+            "Avg Time per Attendee": f"{int(avg_time_per_attendee // 60)}h {int(avg_time_per_attendee % 60)}m"
+        })
+    
+    results = sorted(results, key=lambda x: (x["Total Cost (£)"], x["Total Emissions (kg CO2)"]))
     return results[:3], num_attendees
 
 def create_histogram_tooltip(data, title, xlabel, ylabel):
@@ -151,3 +347,4 @@ st.sidebar.markdown(f"**Total Events Planned:** {usage_data['usage_count']}")
 st.sidebar.markdown(f"**Total Attendees Processed:** {usage_data['total_attendees']}")
 st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted} minutes")
 st.sidebar.markdown(f"**Last Processing Time:** {last_processing_time_formatted} minutes")
+
