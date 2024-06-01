@@ -113,6 +113,22 @@ def choose_travel_mode(api_key, origin, destination, cost_per_km_car, emission_p
         return 'driving'
     return 'transit'
 
+# Function to extract city names from postcodes
+def extract_city_names(api_key, postcodes):
+    gmaps = googlemaps.Client(key=api_key)
+    cities = []
+    for postcode in postcodes:
+        try:
+            result = gmaps.geocode(postcode)
+            if result:
+                address_components = result[0]['address_components']
+                for component in address_components:
+                    if 'locality' in component['types']:
+                        cities.append(component['long_name'])
+        except Exception as e:
+            st.error(f"Error extracting city name from postcode {postcode}: {e}")
+    return list(set(cities))  # Return unique city names
+
 # Function to generate recommendations
 def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train, budget_cost, budget_time, budget_emissions, budget_type):
     origins = df['postcode'].tolist()
@@ -122,7 +138,7 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
     
     if not base_locations.strip():
         # Extract unique city names from the attendee postcodes
-        unique_cities = list(set([origin.split(",")[-1].strip() for origin in valid_origins]))
+        unique_cities = extract_city_names(api_key, valid_origins)
         destinations = unique_cities
     else:
         destinations = base_locations.split('\n')
