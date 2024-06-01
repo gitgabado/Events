@@ -189,7 +189,7 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
     st.markdown(f"**Number of Attendees Processed: {num_attendees}**")
     st.markdown("This number reflects the total attendees considered to provide these location recommendations based on the provided postcodes.")
 
-    # Create charts
+        # Create charts
     locations = [rec['Location'] for rec in recommendations]
     costs = [rec['Avg Cost per Attendee (£)'] if budget_type == "Average Budget per Attendee" else rec['Total Cost (£)'] for rec in recommendations]
     emissions = [rec['Avg Emissions per Attendee (kg CO2)'] if budget_type == "Average Budget per Attendee" else rec['Total Emissions (kg CO2)'] for rec in recommendations]
@@ -315,3 +315,4 @@ st.sidebar.markdown(f"**Total Events Planned:** {usage_data['usage_count']}")
 st.sidebar.markdown(f"**Total Attendees Processed:** {usage_data['total_attendees']}")
 st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted} minutes")
 st.sidebar.markdown(f"**Last Processing Time:** {last_processing_time_formatted} minutes")
+
