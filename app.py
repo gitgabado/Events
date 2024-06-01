@@ -121,8 +121,9 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
     num_attendees = len(valid_origins)
     
     if not base_locations.strip():
-        # If no base locations provided, use attendee locations as potential base locations
-        destinations = valid_origins
+        # Extract unique city names from the attendee postcodes
+        unique_cities = list(set([origin.split(",")[-1].strip() for origin in valid_origins]))
+        destinations = unique_cities
     else:
         destinations = base_locations.split('\n')
     
@@ -176,12 +177,12 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
             "Avg Time per Attendee": f"{int(avg_time_per_attendee // 60)}h {int(avg_time_per_attendee % 60)}m"
         })
     
-        results = sorted(results, key=lambda x: (x["Total Cost (£)"], x["Total Emissions (kg CO2)"]))
+    results = sorted(results, key=lambda x: (x["Total Cost (£)"], x["Total Emissions (kg CO2)"]))
     return results[:3], num_attendees
 
 def display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type):
     df_recommendations = pd.DataFrame(recommendations)
-    df_recommendations.index = df_recommendations.index + 1  # Make index start from 1
+        df_recommendations.index = df_recommendations.index + 1  # Make index start from 1
 
     st.write(df_recommendations)
 
@@ -283,7 +284,7 @@ if st.button("Generate Recommendations"):
         st.error("Please upload a CSV file with attendee postcodes.")
     else:
         start_time = time.time()
-        with st.spinner('Recommendation Engine at work ⏳'):
+        with st.spinner('Recommendation Engine at work ⏳🚂...'):
             recommendations, num_attendees = generate_recommendations(df, base_locations, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train, budget_cost, budget_time, budget_emissions, budget_type)
             time.sleep(2)  # Simulate processing time
         end_time = time.time()
@@ -310,3 +311,4 @@ st.sidebar.markdown(f"**Total Events Planned:** {usage_data['usage_count']}")
 st.sidebar.markdown(f"**Total Attendees Processed:** {usage_data['total_attendees']}")
 st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted} minutes")
 st.sidebar.markdown(f"**Last Processing Time:** {last_processing_time_formatted} minutes")
+
