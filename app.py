@@ -63,8 +63,10 @@ def validate_location(api_key, location):
         result = gmaps.geocode(location)
         if result:
             formatted_address = result[0]['formatted_address']
+            st.write(f"Validated location: {formatted_address}")
             return formatted_address
         else:
+            st.write(f"Location not found: {location}")
             return None
     except Exception as e:
         st.error(f"Error validating location {location}: {e}")
@@ -125,6 +127,7 @@ def extract_city_names(api_key, postcodes):
                 for component in address_components:
                     if 'locality' in component['types']:
                         cities.append(component['long_name'])
+                        break  # Stop after finding the first locality component
         except Exception as e:
             st.error(f"Error extracting city name from postcode {postcode}: {e}")
     return list(set(cities))  # Return unique city names
@@ -145,6 +148,8 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
     
     valid_destinations = [validate_location(api_key, destination) for destination in destinations]
     valid_destinations = [destination for destination in valid_destinations if destination is not None]
+    
+    st.write("Valid Destinations: ", valid_destinations)
     
     results = []
     for location in valid_destinations:
@@ -327,4 +332,3 @@ st.sidebar.markdown(f"**Total Events Planned:** {usage_data['usage_count']}")
 st.sidebar.markdown(f"**Total Attendees Processed:** {usage_data['total_attendees']}")
 st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted} minutes")
 st.sidebar.markdown(f"**Last Processing Time:** {last_processing_time_formatted} minutes")
-
