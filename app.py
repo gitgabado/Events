@@ -189,8 +189,8 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
     st.markdown(f"**Number of Attendees Processed: {num_attendees}**")
     st.markdown("This number reflects the total attendees considered to provide these location recommendations based on the provided postcodes.")
 
-        # Create charts
-    locations = [rec['Location'] for rec in recommendations]
+    # Create charts
+        locations = [rec['Location'] for rec in recommendations]
     costs = [rec['Avg Cost per Attendee (£)'] if budget_type == "Average Budget per Attendee" else rec['Total Cost (£)'] for rec in recommendations]
     emissions = [rec['Avg Emissions per Attendee (kg CO2)'] if budget_type == "Average Budget per Attendee" else rec['Total Emissions (kg CO2)'] for rec in recommendations]
     times = [int(rec['Avg Time per Attendee'].split('h')[0]) * 60 + int(rec['Avg Time per Attendee'].split('h')[1].replace('m', '')) if budget_type == "Average Budget per Attendee" else float(rec['Total Time'].split('h')[0]) * 60 + float(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
@@ -267,7 +267,7 @@ def load_usage_data():
         with open(usage_count_file, "r") as f:
             return json.load(f)
     else:
-        return {"usage_count": 0, "total_attendees": 0, "total_time": 0}
+        return {"usage_count": 0, "total_attendees": 0, "total_time": 0, "last_processing_time": 0}
 
 # Function to save usage data
 def save_usage_data(data):
@@ -299,6 +299,7 @@ if st.button("Generate Recommendations"):
         usage_data["usage_count"] += 1
         usage_data["total_attendees"] += num_attendees
         usage_data["total_time"] += processing_time
+        usage_data["last_processing_time"] = processing_time
         save_usage_data(usage_data)
 
         # Display the last processing time
@@ -314,5 +315,6 @@ st.sidebar.subheader("📊 Usage Statistics")
 st.sidebar.markdown(f"**Total Events Planned:** {usage_data['usage_count']}")
 st.sidebar.markdown(f"**Total Attendees Processed:** {usage_data['total_attendees']}")
 st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted} minutes")
+last_processing_time_formatted = time.strftime("%M:%S", time.gmtime(usage_data["last_processing_time"]))
 st.sidebar.markdown(f"**Last Processing Time:** {last_processing_time_formatted} minutes")
 
