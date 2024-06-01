@@ -74,16 +74,26 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
         total_cost, total_time, total_emissions = 0, 0, 0
 
         for postcode in df["postcode"]:
-            directions = gmaps.directions(postcode, base, mode="driving")
-            distance_km = directions[0]["legs"][0]["distance"]["value"] / 1000
-            time_minutes = directions[0]["legs"][0]["duration"]["value"] / 60
+            try:
+                directions = gmaps.directions(postcode, base, mode="driving")
+                if not directions:
+                    st.error(f"No directions found for postcode: {postcode}")
+                    continue
 
-            cost_car, emissions_car = calculate_cost_and_emissions(distance_km, cost_per_km_car, emission_per_km_car)
-            cost_train, emissions_train = calculate_cost_and_emissions(distance_km, cost_per_km_train, emission_per_km_train)
+                distance_km = directions[0]["legs"][0]["distance"]["value"] / 1000
+                time_minutes = directions[0]["legs"][0]["duration"]["value"] / 60
 
-            total_cost += min(cost_car, cost_train)
-            total_time += time_minutes
-            total_emissions += min(emissions_car, emissions_train)
+                cost_car, emissions_car = calculate_cost_and_emissions(distance_km, cost_per_km_car, emission_per_km_car)
+                cost_train, emissions_train = calculate_cost_and_emissions(distance_km, cost_per_km_train, emission_per_km_train)
+
+                total_cost += min(cost_car, cost_train)
+                total_time += time_minutes
+                total_emissions += min(emissions_car, emissions_train)
+
+            except googlemaps.exceptions.ApiError as e:
+                st.error(f"API error for postcode {postcode}: {e}")
+            except Exception as e:
+                st.error(f"Unexpected error for postcode {postcode}: {e}")
 
         if budget_type == "Total Budget for the Event":
             if total_cost <= budget_cost and total_time <= budget_time and total_emissions <= budget_emissions:
