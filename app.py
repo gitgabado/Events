@@ -315,5 +315,5 @@ st.sidebar.subheader("📊 Usage Statistics")
 st.sidebar.markdown(f"**Total Events Planned:** {usage_data['usage_count']}")
 st.sidebar.markdown(f"**Total Attendees Processed:** {usage_data['total_attendees']}")
 st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted} minutes")
-st.sidebar.markdown(f"**Last Processing Time:** {last_processing_time_formatted} minutes")
+
 
