@@ -66,6 +66,7 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
 
     for base in base_locations:
         total_cost, total_time, total_emissions = 0, 0, 0
+        valid_postcodes = 0
 
         for postcode in df["postcode"]:
             try:
@@ -83,21 +84,23 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
                 total_cost += min(cost_car, cost_train)
                 total_time += time_minutes
                 total_emissions += min(emissions_car, emissions_train)
+                valid_postcodes += 1
 
             except googlemaps.exceptions.ApiError as e:
                 st.error(f"API error for postcode {postcode}: {e}")
             except Exception as e:
                 st.error(f"Unexpected error for postcode {postcode}: {e}")
 
-        if budget_type == "Total Budget for the Event":
-            if total_cost <= budget_cost and total_time <= budget_time and total_emissions <= budget_emissions:
-                recommendations.append((base, total_cost, total_time, total_emissions))
-        else:
-            avg_cost = total_cost / len(df)
-            avg_time = total_time / len(df)
-            avg_emissions = total_emissions / len(df)
-            if avg_cost <= budget_cost and avg_time <= budget_time and avg_emissions <= budget_emissions:
-                recommendations.append((base, avg_cost, avg_time, avg_emissions))
+        if valid_postcodes > 0:
+            if budget_type == "Total Budget for the Event":
+                if total_cost <= budget_cost and total_time <= budget_time and total_emissions <= budget_emissions:
+                    recommendations.append((base, total_cost, total_time, total_emissions))
+            else:
+                avg_cost = total_cost / valid_postcodes
+                avg_time = total_time / valid_postcodes
+                avg_emissions = total_emissions / valid_postcodes
+                if avg_cost <= budget_cost and avg_time <= budget_time and avg_emissions <= budget_emissions:
+                    recommendations.append((base, avg_cost, avg_time, avg_emissions))
 
     recommendations.sort(key=lambda x: (x[1], x[2], x[3]))
     return recommendations[:3], len(df)
@@ -148,8 +151,11 @@ if st.button("Generate Recommendations"):
             end_time = time.time()
             processing_time = end_time - start_time
 
-            st.subheader("Top 3 Recommended Locations")
-            display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type)
+            if recommendations:
+                st.subheader("Top 3 Recommended Locations")
+                display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type)
+            else:
+                st.write("No recommendations could be generated based on the input criteria.")
 
             # Update and save usage data
             usage_data["usage_count"] += 1
