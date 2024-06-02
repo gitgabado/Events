@@ -171,10 +171,10 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
             "Location": location.split(",")[0],  # Extracting city name
             "Total Cost (£)": int(total_cost),
             "Total Emissions (kg CO2)": int(total_emissions),
-            "Total Time": f"{int(total_time_hours)}h {int(total_time_minutes)}m",
+            "Total Time (minutes)": int(total_time),
             "Avg Cost per Attendee (£)": int(avg_cost_per_attendee),
             "Avg Emissions per Attendee (kg CO2)": int(avg_emissions_per_attendee),
-            "Avg Time per Attendee": f"{int(avg_time_per_attendee // 60)}h {int(avg_time_per_attendee % 60)}m"
+            "Avg Time per Attendee (minutes)": int(avg_time_per_attendee)
         })
     
     results = sorted(results, key=lambda x: (x["Total Cost (£)"], x["Total Emissions (kg CO2)"]))
@@ -192,15 +192,17 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
 
     # Create charts
     locations = [rec['Location'] for rec in recommendations]
-    costs = [rec['Avg Cost per Attendee (£)'] if budget_type == "Average Budget per Attendee" else rec['Total Cost (£)'] for rec in recommendations]
-    emissions = [rec['Avg Emissions per Attendee (kg CO2)'] if budget_type == "Average Budget per Attendee" else rec['Total Emissions (kg CO2)'] for rec in recommendations]
-    times = [int(rec['Avg Time per Attendee'].split('h')[0]) * 60 + int(rec['Avg Time per Attendee'].split('h')[1].replace('m', '')) if budget_type == "Average Budget per Attendee" else float(rec['Total Time'].split('h')[0]) * 60 + float(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
-
     if budget_type == "Total Budget for the Event":
+        costs = [rec['Total Cost (£)'] for rec in recommendations]
+        emissions = [rec['Total Emissions (kg CO2)'] for rec in recommendations]
+        times = [rec['Total Time (minutes)'] for rec in recommendations]
         budget_cost_label = "Total Cost (£)"
         budget_time_label = "Total Time (minutes)"
         budget_emissions_label = "Total Emissions (kg CO2)"
     else:
+        costs = [rec['Avg Cost per Attendee (£)'] for rec in recommendations]
+        emissions = [rec['Avg Emissions per Attendee (kg CO2)'] for rec in recommendations]
+        times = [rec['Avg Time per Attendee (minutes)'] for rec in recommendations]
         budget_cost_label = "Avg Cost per Attendee (£)"
         budget_time_label = "Avg Time per Attendee (minutes)"
         budget_emissions_label = "Avg Emissions per Attendee (kg CO2)"
@@ -320,12 +322,12 @@ st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted} minu
 # Toggle button for charts
 chart_type = st.radio("Select Chart Type:", ["Total Budget", "Average Budget"])
 
-# Assuming that the recommendation calculation and data manipulation code is here...
-
 # Example charts
 if chart_type == "Total Budget":
-    fig = px.bar(df, x='Location', y='Total Budget', title="Total Budget per Location", color_discrete_sequence=px.colors.qualitative.Plotly)
+    df_recommendations['Total Budget'] = df_recommendations['Total Cost (£)']
+    fig = px.bar(df_recommendations, x='Location', y='Total Budget', title="Total Budget per Location", color_discrete_sequence=px.colors.qualitative.Plotly)
 else:
-    fig = px.bar(df, x='Location', y='Average Budget', title="Average Budget per Location", color_discrete_sequence=px.colors.qualitative.Plotly)
+    df_recommendations['Average Budget'] = df_recommendations['Avg Cost per Attendee (£)']
+    fig = px.bar(df_recommendations, x='Location', y='Average Budget', title="Average Budget per Location", color_discrete_sequence=px.colors.qualitative.Plotly)
 
 st.plotly_chart(fig)
