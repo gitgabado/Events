@@ -1,12 +1,14 @@
 import streamlit as st
 import pandas as pd
 import googlemaps
-import matplotlib.pyplot as plt
+import plotly.graph_objs as go
 from io import StringIO
 import time
 import os
 import tempfile
 import json
+import matplotlib.pyplot as plt
+import plotly.express as px  # Added for chart beautification
 
 st.title("Event Location Planner")
 
@@ -19,9 +21,9 @@ Upload a CSV file with attendee postcodes, configure your cost and emission para
 # Sidebar for settings and inputs
 st.sidebar.header("⚙️ Settings")
 
-api_key = st.sidebar.text_input("Google API Key", type="password")
+api_key = st.sidebar.text_input("🔑 Google API Key", type="password")
 
-st.sidebar.subheader("💸 Budget")
+st.sidebar.markdown("**💸 Budget**")
 budget_type = st.sidebar.radio("", ["Total Budget for the Event", "Average Budget per Attendee"])
 
 if budget_type == "Total Budget for the Event":
@@ -42,8 +44,7 @@ emission_per_km_train = st.sidebar.number_input("Emissions per km by Train (kg C
 
 # Potential Base Locations Input
 st.sidebar.subheader("📍 Potential Base Locations")
-base_locations = st.sidebar.text_area("Enter base locations (one per line)", 
-                                      "London, UK\nManchester, UK\nBirmingham, UK\nLeeds, UK\nGlasgow, UK\nEdinburgh, UK\nBristol, UK\nLiverpool, UK\nNewcastle, UK\nSheffield, UK")
+base_locations = st.sidebar.text_area("Enter base locations (one per line)")
 
 # Upload Attendee Postcodes
 st.subheader("Upload Attendee Postcodes CSV")
@@ -167,7 +168,7 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
         total_time_hours, total_time_minutes = divmod(total_time, 60)
         
         results.append({
-            "Location": location,
+            "Location": location.split(",")[0],  # Extracting city name
             "Total Cost (£)": int(total_cost),
             "Total Emissions (kg CO2)": int(total_emissions),
             "Total Time": f"{int(total_time_hours)}h {int(total_time_minutes)}m",
@@ -183,22 +184,17 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
     df_recommendations = pd.DataFrame(recommendations)
     df_recommendations.index = df_recommendations.index + 1  # Make index start from 1
 
-    # Styling the DataFrame for a premium look
-    styled_df = df_recommendations.style.set_table_styles(
-        [{'selector': 'th', 'props': [('font-size', '14pt'), ('text-align', 'center')]},
-         {'selector': 'td', 'props': [('font-size', '12pt'), ('text-align', 'center')]}]
-    ).set_properties(**{
-        'background-color': 'white',
-        'color': 'black',
-        'border-color': 'black'
-    }).hide(axis='index')
+    st.write(df_recommendations)
 
-    st.write(styled_df.to_html(), unsafe_allow_html=True)
+    # Additional details about the number of attendees
+    st.markdown(f"**Number of Attendees Processed: {num_attendees}**")
+    st.markdown("This number reflects the total attendees considered to provide these location recommendations based on the provided postcodes.")
 
+    # Create charts
     locations = [rec['Location'] for rec in recommendations]
     costs = [rec['Avg Cost per Attendee (£)'] if budget_type == "Average Budget per Attendee" else rec['Total Cost (£)'] for rec in recommendations]
     emissions = [rec['Avg Emissions per Attendee (kg CO2)'] if budget_type == "Average Budget per Attendee" else rec['Total Emissions (kg CO2)'] for rec in recommendations]
-    times = [int(rec['Avg Time per Attendee'].split('h')[0])*60 + int(rec['Avg Time per Attendee'].split('h')[1].replace('m', '')) if budget_type == "Average Budget per Attendee" else float(rec['Total Time'].split('h')[0])*60 + float(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
+    times = [int(rec['Avg Time per Attendee'].split('h')[0]) * 60 + int(rec['Avg Time per Attendee'].split('h')[1].replace('m', '')) if budget_type == "Average Budget per Attendee" else float(rec['Total Time'].split('h')[0]) * 60 + float(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
 
     if budget_type == "Total Budget for the Event":
         budget_cost_label = "Total Cost (£)"
@@ -272,7 +268,7 @@ def load_usage_data():
         with open(usage_count_file, "r") as f:
             return json.load(f)
     else:
-        return {"usage_count": 0, "total_attendees": 0, "total_time": 0}
+        return {"usage_count": 0, "total_attendees": 0, "total_time": 0, "last_processing_time": 0}
 
 # Function to save usage data
 def save_usage_data(data):
@@ -291,7 +287,7 @@ if st.button("Generate Recommendations"):
         st.error("The uploaded CSV file must contain a 'postcode' column.")
     else:
         start_time = time.time()
-        with st.spinner('Recommendation Engine at work ⏳'):
+        with st.spinner('Recommendation Engine at work ⏳🚂'):
             recommendations, num_attendees = generate_recommendations(df, base_locations, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train, budget_cost, budget_time, budget_emissions, budget_type)
             time.sleep(2)  # Simulate processing time
         end_time = time.time()
@@ -304,7 +300,12 @@ if st.button("Generate Recommendations"):
         usage_data["usage_count"] += 1
         usage_data["total_attendees"] += num_attendees
         usage_data["total_time"] += processing_time
+        usage_data["last_processing_time"] = processing_time
         save_usage_data(usage_data)
+
+        # Display the last processing time
+        last_processing_time_formatted = time.strftime("%M:%S", time.gmtime(processing_time))
+        st.sidebar.markdown(f"**Last Processing Time:** {last_processing_time_formatted} minutes")
 
 # Display cumulative usage data in the sidebar
 average_time = usage_data["total_time"] / usage_data["usage_count"] if usage_data["usage_count"] > 0 else 0
@@ -315,3 +316,16 @@ st.sidebar.subheader("📊 Usage Statistics")
 st.sidebar.markdown(f"**Total Events Planned:** {usage_data['usage_count']}")
 st.sidebar.markdown(f"**Total Attendees Processed:** {usage_data['total_attendees']}")
 st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted} minutes")
+
+# Toggle button for charts
+chart_type = st.radio("Select Chart Type:", ["Total Budget", "Average Budget"])
+
+# Assuming that the recommendation calculation and data manipulation code is here...
+
+# Example charts
+if chart_type == "Total Budget":
+    fig = px.bar(df, x='Location', y='Total Budget', title="Total Budget per Location", color_discrete_sequence=px.colors.qualitative.Plotly)
+else:
+    fig = px.bar(df, x='Location', y='Average Budget', title="Average Budget per Location", color_discrete_sequence=px.colors.qualitative.Plotly)
+
+st.plotly_chart(fig)
