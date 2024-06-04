@@ -222,7 +222,7 @@ if 'token' in st.session_state:
                 "Avg Time per Attendee": f"{int(avg_time_per_attendee // 60)}h {int(avg_time_per_attendee % 60)}m"
             })
         
-        results are sorted(results, key=lambda x: (x["Total Cost (£)"], x["Total Emissions (kg CO2)"]))
+        results = sorted(results, key=lambda x: (x["Total Cost (£)"], x["Total Emissions (kg CO2)"]))
         best_emission_location = min(results, key=lambda x: x["Total Emissions (kg CO2)"])
         return results[:3], num_attendees, best_emission_location, lat_lng_mapping
 
