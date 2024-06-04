@@ -7,9 +7,7 @@ import json
 import matplotlib.pyplot as plt
 from PIL import Image
 from authlib.integrations.requests_client import OAuth2Session
-from streamlit.cookies import get_cookie, set_cookie, delete_cookie
-import yaml
-from yaml.loader import SafeLoader
+from streamlit_cookies_manager import EncryptedCookieManager
 
 # Configuration for the app
 st.set_page_config(page_title="Event Location Planner")
@@ -32,46 +30,51 @@ userinfo_url = 'https://www.googleapis.com/oauth2/v1/userinfo'
 # Create an OAuth2 session
 oauth = OAuth2Session(client_id, client_secret, redirect_uri=redirect_uri)
 
+# Initialize cookies manager
+cookies = EncryptedCookieManager(prefix="events_")
+if not cookies.ready():
+    st.stop()
+
 # Function to load settings from cookies
 def load_settings():
     settings = {}
-    settings['api_key'] = get_cookie('api_key')
-    settings['budget_type'] = get_cookie('budget_type')
-    settings['budget_cost'] = get_cookie('budget_cost')
-    settings['budget_time'] = get_cookie('budget_time')
-    settings['budget_emissions'] = get_cookie('budget_emissions')
-    settings['cost_per_km_car'] = get_cookie('cost_per_km_car')
-    settings['emission_per_km_car'] = get_cookie('emission_per_km_car')
-    settings['cost_per_km_train'] = get_cookie('cost_per_km_train')
-    settings['emission_per_km_train'] = get_cookie('emission_per_km_train')
-    settings['base_locations'] = get_cookie('base_locations')
+    settings['api_key'] = cookies.get('api_key')
+    settings['budget_type'] = cookies.get('budget_type')
+    settings['budget_cost'] = cookies.get('budget_cost')
+    settings['budget_time'] = cookies.get('budget_time')
+    settings['budget_emissions'] = cookies.get('budget_emissions')
+    settings['cost_per_km_car'] = cookies.get('cost_per_km_car')
+    settings['emission_per_km_car'] = cookies.get('emission_per_km_car')
+    settings['cost_per_km_train'] = cookies.get('cost_per_km_train')
+    settings['emission_per_km_train'] = cookies.get('emission_per_km_train')
+    settings['base_locations'] = cookies.get('base_locations')
     return settings
 
 # Function to save settings to cookies
 def save_settings(settings):
-    set_cookie('api_key', settings['api_key'])
-    set_cookie('budget_type', settings['budget_type'])
-    set_cookie('budget_cost', settings['budget_cost'])
-    set_cookie('budget_time', settings['budget_time'])
-    set_cookie('budget_emissions', settings['budget_emissions'])
-    set_cookie('cost_per_km_car', settings['cost_per_km_car'])
-    set_cookie('emission_per_km_car', settings['emission_per_km_car'])
-    set_cookie('cost_per_km_train', settings['cost_per_km_train'])
-    set_cookie('emission_per_km_train', settings['emission_per_km_train'])
-    set_cookie('base_locations', settings['base_locations'])
+    cookies.set('api_key', settings['api_key'])
+    cookies.set('budget_type', settings['budget_type'])
+    cookies.set('budget_cost', str(settings['budget_cost']))
+    cookies.set('budget_time', str(settings['budget_time']))
+    cookies.set('budget_emissions', str(settings['budget_emissions']))
+    cookies.set('cost_per_km_car', str(settings['cost_per_km_car']))
+    cookies.set('emission_per_km_car', str(settings['emission_per_km_car']))
+    cookies.set('cost_per_km_train', str(settings['cost_per_km_train']))
+    cookies.set('emission_per_km_train', str(settings['emission_per_km_train']))
+    cookies.set('base_locations', settings['base_locations'])
 
 # Check if user wants to log out
 if st.sidebar.button("Log Off"):
-    delete_cookie('api_key')
-    delete_cookie('budget_type')
-    delete_cookie('budget_cost')
-    delete_cookie('budget_time')
-    delete_cookie('budget_emissions')
-    delete_cookie('cost_per_km_car')
-    delete_cookie('emission_per_km_car')
-    delete_cookie('cost_per_km_train')
-    delete_cookie('emission_per_km_train')
-    delete_cookie('base_locations')
+    cookies.delete('api_key')
+    cookies.delete('budget_type')
+    cookies.delete('budget_cost')
+    cookies.delete('budget_time')
+    cookies.delete('budget_emissions')
+    cookies.delete('cost_per_km_car')
+    cookies.delete('emission_per_km_car')
+    cookies.delete('cost_per_km_train')
+    cookies.delete('emission_per_km_train')
+    cookies.delete('base_locations')
     st.experimental_rerun()
 
 # After redirect back from Google
@@ -274,7 +277,7 @@ if 'token' in st.session_state:
                 "Avg Time per Attendee": f"{int(avg_time_per_attendee // 60)}h {int(avg_time_per_attendee % 60)}m"
             })
         
-        results = sorted(results, key=lambda x: (x["Total Cost (£)"], x["Total Emissions (kg CO2)"]))
+        results are sorted(results, key=lambda x: (x["Total Cost (£)"], x["Total Emissions (kg CO2)"]))
         best_emission_location = min(results, key=lambda x: x["Total Emissions (kg CO2)"])
         return results[:3], num_attendees, best_emission_location, lat_lng_mapping
 
@@ -371,14 +374,14 @@ if 'token' in st.session_state:
     # Function to load usage data
     def load_usage_data():
         if os.path.exists(usage_count_file):
-            with open(usage_count_file, "r") as f:
+            with open(usage_count_file, "r") as f):
                 return json.load(f)
         else:
             return {"usage_count": 0, "total_attendees": 0, "total_time": 0, "last_processing_time": 0}
 
     # Function to save usage data
     def save_usage_data(data):
-        with open(usage_count_file, "w") as f:
+        with open(usage_count_file, "w") as f):
             json.dump(data, f)
 
     # Load current usage data
