@@ -52,9 +52,6 @@ emission_per_km_train = st.sidebar.number_input("Emissions per km by Train (kg C
 st.sidebar.subheader("📍 Potential Base Locations")
 base_locations = st.sidebar.text_area("Enter base locations (one per line)")
 
-# View type selection
-view_type = st.sidebar.radio("Select View Type", ["Total", "Average"], index=0)
-
 # Upload Attendee Postcodes
 st.subheader("Upload Attendee Postcodes CSV")
 uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
@@ -194,7 +191,7 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
     best_emission_location = min(results, key=lambda x: x["Total Emissions (kg CO2)"])
     return results[:3], num_attendees, best_emission_location, lat_lng_mapping
 
-def display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type, best_emission_location, lat_lng_mapping, view_type):
+def display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type, best_emission_location, lat_lng_mapping):
     df_recommendations = pd.DataFrame(recommendations)
     df_recommendations.index = df_recommendations.index + 1  # Make index start from 1
     
@@ -211,7 +208,7 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
 
     # Create charts
     locations = [rec['Location'].replace(" 🌿", "") for rec in recommendations]
-    if view_type == "Total":
+    if budget_type == "Total Budget for the Event":
         costs = [rec['Total Cost (£)'] for rec in recommendations]
         emissions = [rec['Total Emissions (kg CO2)'] for rec in recommendations]
         times = [int(rec['Total Time'].split('h')[0]) * 60 + int(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
@@ -309,8 +306,8 @@ if "best_emission_location" not in st.session_state:
     st.session_state.best_emission_location = None
 if "lat_lng_mapping" not in st.session_state:
     st.session_state.lat_lng_mapping = None
-if "view_type" not in st.session_state:
-    st.session_state.view_type = view_type
+if "budget_type" not in st.session_state:
+    st.session_state.budget_type = budget_type
 
 if st.button("Generate Recommendations"):
     if not api_key:
@@ -331,9 +328,10 @@ if st.button("Generate Recommendations"):
         st.session_state.num_attendees = num_attendees
         st.session_state.best_emission_location = best_emission_location
         st.session_state.lat_lng_mapping = lat_lng_mapping
+        st.session_state.budget_type = budget_type
 
         st.subheader("Top 3 Recommended Locations")
-        display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type, best_emission_location, lat_lng_mapping, st.session_state.view_type)
+        display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type, best_emission_location, lat_lng_mapping)
 
         # Update and save usage data
         usage_data["usage_count"] += 1
@@ -357,4 +355,4 @@ st.sidebar.markdown(f"**Last Processing Time:** {last_processing_time_formatted}
 # Check if recommendations are already present in session state
 if st.session_state.recommendations:
     st.subheader("Top 3 Recommended Locations")
-    display_recommendations_and_charts(st.session_state.recommendations, st.session_state.num_attendees, budget_cost, budget_time, budget_emissions, budget_type, st.session_state.best_emission_location, st.session_state.lat_lng_mapping, st.session_state.view_type)
+    display_recommendations_and_charts(st.session_state.recommendations, st.session_state.num_attendees, budget_cost, budget_time, budget_emissions, st.session_state.budget_type, st.session_state.best_emission_location, st.session_state.lat_lng_mapping)
