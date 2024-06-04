@@ -20,14 +20,23 @@ st.image(logo, width=150)
 
 st.title("Event Location Planner")
 
-# Display login/logout buttons
-login_button()
-logout_button()
+# Load the configuration file
+with open('config.yaml') as file:
+    config = yaml.load(file, Loader=SafeLoader)
 
-if not is_authenticated():
-    st.warning("Please log in to use the app.")
-else:
-    # The rest of your app code goes here
+authenticator = stauth.Authenticate(
+    config['credentials'],
+    config['cookie']['name'],
+    config['cookie']['key'],
+    config['cookie']['expiry_days'],
+    config['preauthorized']
+)
+
+name, authentication_status, email = authenticator.login('Login', 'main')
+
+if authentication_status:
+    authenticator.logout('Logout', 'sidebar')
+
     st.subheader("Plan your events efficiently with optimal locations 🌍🎉")
     st.markdown("""
     This tool helps you to find the best locations for your events based on travel time, cost, and emissions. 
@@ -375,3 +384,6 @@ else:
             st.session_state.best_emission_location,
             st.session_state.lat_lng_mapping
         )
+
+else:
+    st.error("Please login to access this application.")
