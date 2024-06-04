@@ -25,9 +25,9 @@ with open('config.yaml') as file:
     config = yaml.load(file, Loader=SafeLoader)
 
 # OAuth configuration
-client_id = 'YOUR_CLIENT_ID'
-client_secret = 'YOUR_CLIENT_SECRET'
-redirect_uri = 'YOUR_REDIRECT_URI'
+client_id = '389176055982-anmjh9i1ev0jb922bovs7o4qu6is8kpm.apps.googleusercontent.com'
+client_secret = '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'
+redirect_uri = 'https://events-ulozygjxpzydwoqs2dczf8.streamlit.app'
 authorize_url = 'https://accounts.google.com/o/oauth2/auth'
 token_url = 'https://accounts.google.com/o/oauth2/token'
 userinfo_url = 'https://www.googleapis.com/oauth2/v1/userinfo'
