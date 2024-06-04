@@ -6,7 +6,9 @@ import os
 import json
 import matplotlib.pyplot as plt
 from PIL import Image
-from streamlit_auth0 import login_button, logout_button, is_authenticated
+import yaml
+from yaml.loader import SafeLoader
+import streamlit_authenticator as stauth
 
 # Configuration for the app
 st.set_page_config(page_title="Event Location Planner")
