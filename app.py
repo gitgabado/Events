@@ -294,7 +294,7 @@ def load_usage_data():
 
 # Function to save usage data
 def save_usage_data(data):
-    with open(usage_count_file, "w") as f:
+    with open(usage_count_file, "w") as f):
         json.dump(data, f)
 
 # Load current usage data
@@ -333,7 +333,7 @@ if st.button("Generate Recommendations"):
         st.session_state.lat_lng_mapping = lat_lng_mapping
 
         st.subheader("Top 3 Recommended Locations")
-        display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type, best_emission_location, lat_lng_mapping, view_type)
+        display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type, best_emission_location, lat_lng_mapping, st.session_state.view_type)
 
         # Update and save usage data
         usage_data["usage_count"] += 1
