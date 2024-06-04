@@ -6,9 +6,9 @@ import os
 import json
 import matplotlib.pyplot as plt
 from PIL import Image
+from streamlit_oauth import OAuth
 import yaml
 from yaml.loader import SafeLoader
-import streamlit_authenticator as stauth
 
 # Configuration for the app
 st.set_page_config(page_title="Event Location Planner")
@@ -20,43 +20,26 @@ st.image(logo, width=150)
 
 st.title("Event Location Planner")
 
-# Load the configuration file
-with open('config.yaml') as file:
-    config = yaml.load(file, Loader=SafeLoader)
+# Initialize OAuth
+oauth = OAuth()
 
-authenticator = stauth.Authenticate(
-    config['credentials'],
-    config['cookie']['name'],
-    config['cookie']['key'],
-    config['cookie']['expiry_days'],
-    config['preauthorized'],
-    key='auth',
-    encryption='none'  # Disable encryption for plain text passwords (not recommended)
+# Add your OAuth provider configurations here
+# Example for Google OAuth
+oauth_provider = oauth.register_oauth_provider(
+    name="google",
+    client_id="YOUR_GOOGLE_CLIENT_ID",
+    client_secret="YOUR_GOOGLE_CLIENT_SECRET",
+    redirect_uri="YOUR_REDIRECT_URI",
+    authorize_url="https://accounts.google.com/o/oauth2/auth",
+    access_token_url="https://accounts.google.com/o/oauth2/token",
+    scopes=["profile", "email"]
 )
 
-name, authentication_status, email = authenticator.login('Login', 'main')
+# Handle OAuth login
+user_info = oauth_provider.login()
 
-if authentication_status:
-    authenticator.logout('Logout', 'sidebar')
-
-    if st.sidebar.checkbox("Change Password"):
-        with st.sidebar.form("Change Password Form"):
-            new_password = st.text_input("New Password", type="password")
-            confirm_password = st.text_input("Confirm Password", type="password")
-            change_password = st.form_submit_button("Change Password")
-
-            if change_password:
-                if new_password == confirm_password:
-                    # Find the user and update the password in the config
-                    for user in config['credentials']['usernames']:
-                        if config['credentials']['usernames'][user]['email'] == email:
-                            config['credentials']['usernames'][user]['password'] = new_password
-                            with open('config.yaml', 'w') as file:
-                                yaml.dump(config, file)
-                            st.success("Password changed successfully!")
-                            break
-                else:
-                    st.error("Passwords do not match.")
+if user_info:
+    st.success(f"Welcome {user_info['name']}!")
 
     st.subheader("Plan your events efficiently with optimal locations 🌍🎉")
     st.markdown("""
