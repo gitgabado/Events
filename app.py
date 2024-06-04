@@ -27,7 +27,7 @@ with open('config.yaml') as file:
 # OAuth configuration
 client_id = '389176055982-anmjh9i1ev0jb922bovs7o4qu6is8kpm.apps.googleusercontent.com'
 client_secret = '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'
-redirect_uri = 'https://events-ulozygjxpzydwoqs2dczf8.streamlit.app'
+redirect_uri = 'https://events-ulozygjxpzydwoqs2dczf8.streamlit.app/'
 authorize_url = 'https://accounts.google.com/o/oauth2/auth'
 token_url = 'https://accounts.google.com/o/oauth2/token'
 userinfo_url = 'https://www.googleapis.com/oauth2/v1/userinfo'
