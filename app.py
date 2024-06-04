@@ -294,7 +294,7 @@ def load_usage_data():
 
 # Function to save usage data
 def save_usage_data(data):
-    with open(usage_count_file, "w") as f):
+    with open(usage_count_file, "w") as f:
         json.dump(data, f)
 
 # Load current usage data
@@ -310,7 +310,7 @@ if "best_emission_location" not in st.session_state:
 if "lat_lng_mapping" not in st.session_state:
     st.session_state.lat_lng_mapping = None
 if "view_type" not in st.session_state:
-    st.session_state.view_type = "Total"
+    st.session_state.view_type = view_type
 
 if st.button("Generate Recommendations"):
     if not api_key:
