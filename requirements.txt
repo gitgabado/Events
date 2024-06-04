@@ -2,6 +2,5 @@ streamlit==1.22.0
 pandas==1.5.3
 googlemaps==4.7.3
 matplotlib==3.7.1
-fpdf==1.7.2
-plotly==5.9.0
 authlib==1.0.0
+
