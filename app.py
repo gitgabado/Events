@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import base64
 
 # Load logo
-logo_path = "Zero 2.png"
+logo_path = "logo.png"
 logo = base64.b64encode(open(logo_path, "rb").read()).decode()
 st.markdown(f"""
     <style>
