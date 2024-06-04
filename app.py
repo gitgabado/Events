@@ -6,7 +6,7 @@ import os
 import json
 import matplotlib.pyplot as plt
 from PIL import Image
-from streamlit_oauth import OAuth
+from authlib.integrations.requests_client import OAuth2Session
 import yaml
 from yaml.loader import SafeLoader
 
@@ -20,25 +20,36 @@ st.image(logo, width=150)
 
 st.title("Event Location Planner")
 
-# Initialize OAuth
-oauth = OAuth()
+# Load the configuration file
+with open('config.yaml') as file:
+    config = yaml.load(file, Loader=SafeLoader)
 
-# Add your OAuth provider configurations here
-# Example for Google OAuth
-oauth_provider = oauth.register_oauth_provider(
-    name="google",
-    client_id="YOUR_GOOGLE_CLIENT_ID",
-    client_secret="YOUR_GOOGLE_CLIENT_SECRET",
-    redirect_uri="YOUR_REDIRECT_URI",
-    authorize_url="https://accounts.google.com/o/oauth2/auth",
-    access_token_url="https://accounts.google.com/o/oauth2/token",
-    scopes=["profile", "email"]
-)
+# OAuth configuration
+client_id = 'YOUR_CLIENT_ID'
+client_secret = 'YOUR_CLIENT_SECRET'
+redirect_uri = 'YOUR_REDIRECT_URI'
+authorize_url = 'https://accounts.google.com/o/oauth2/auth'
+token_url = 'https://accounts.google.com/o/oauth2/token'
+userinfo_url = 'https://www.googleapis.com/oauth2/v1/userinfo'
 
-# Handle OAuth login
-user_info = oauth_provider.login()
+# Create an OAuth2 session
+oauth = OAuth2Session(client_id, client_secret, redirect_uri=redirect_uri)
 
-if user_info:
+if 'token' not in st.session_state:
+    # Redirect user to Google for authorization
+    authorization_url, state = oauth.create_authorization_url(authorize_url, scope='openid email profile')
+    st.session_state['state'] = state
+    st.write(f"[Login with Google]({authorization_url})")
+
+# After redirect back from Google
+if 'token' not in st.session_state and 'code' in st.experimental_get_query_params():
+    token = oauth.fetch_token(token_url, authorization_response=st.experimental_get_query_params(), code=st.experimental_get_query_params()['code'])
+    st.session_state['token'] = token
+
+# If logged in
+if 'token' in st.session_state:
+    oauth = OAuth2Session(client_id, client_secret, token=st.session_state['token'])
+    user_info = oauth.get(userinfo_url).json()
     st.success(f"Welcome {user_info['name']}!")
 
     st.subheader("Plan your events efficiently with optimal locations 🌍🎉")
