@@ -1,0 +1,17 @@
+credentials:
+  users:
+    - email: your-email@gmail.com
+      name: Your Name
+      password: hashed_password
+    - email: another-email@gmail.com
+      name: Another Name
+      password: another_hashed_password
+
+cookie:
+  expiry_days: 30
+  key: some_key
+  name: some_cookie_name
+
+preauthorized:
+  emails:
+    - preauthorized@example.com
