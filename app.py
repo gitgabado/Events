@@ -7,6 +7,7 @@ import json
 import matplotlib.pyplot as plt
 from PIL import Image
 from authlib.integrations.requests_client import OAuth2Session
+from streamlit.cookies import get_cookie, set_cookie, delete_cookie
 import yaml
 from yaml.loader import SafeLoader
 
@@ -31,9 +32,46 @@ userinfo_url = 'https://www.googleapis.com/oauth2/v1/userinfo'
 # Create an OAuth2 session
 oauth = OAuth2Session(client_id, client_secret, redirect_uri=redirect_uri)
 
+# Function to load settings from cookies
+def load_settings():
+    settings = {}
+    settings['api_key'] = get_cookie('api_key')
+    settings['budget_type'] = get_cookie('budget_type')
+    settings['budget_cost'] = get_cookie('budget_cost')
+    settings['budget_time'] = get_cookie('budget_time')
+    settings['budget_emissions'] = get_cookie('budget_emissions')
+    settings['cost_per_km_car'] = get_cookie('cost_per_km_car')
+    settings['emission_per_km_car'] = get_cookie('emission_per_km_car')
+    settings['cost_per_km_train'] = get_cookie('cost_per_km_train')
+    settings['emission_per_km_train'] = get_cookie('emission_per_km_train')
+    settings['base_locations'] = get_cookie('base_locations')
+    return settings
+
+# Function to save settings to cookies
+def save_settings(settings):
+    set_cookie('api_key', settings['api_key'])
+    set_cookie('budget_type', settings['budget_type'])
+    set_cookie('budget_cost', settings['budget_cost'])
+    set_cookie('budget_time', settings['budget_time'])
+    set_cookie('budget_emissions', settings['budget_emissions'])
+    set_cookie('cost_per_km_car', settings['cost_per_km_car'])
+    set_cookie('emission_per_km_car', settings['emission_per_km_car'])
+    set_cookie('cost_per_km_train', settings['cost_per_km_train'])
+    set_cookie('emission_per_km_train', settings['emission_per_km_train'])
+    set_cookie('base_locations', settings['base_locations'])
+
 # Check if user wants to log out
 if st.sidebar.button("Log Off"):
-    st.session_state.clear()
+    delete_cookie('api_key')
+    delete_cookie('budget_type')
+    delete_cookie('budget_cost')
+    delete_cookie('budget_time')
+    delete_cookie('budget_emissions')
+    delete_cookie('cost_per_km_car')
+    delete_cookie('emission_per_km_car')
+    delete_cookie('cost_per_km_train')
+    delete_cookie('emission_per_km_train')
+    delete_cookie('base_locations')
     st.experimental_rerun()
 
 # After redirect back from Google
@@ -57,33 +95,49 @@ if 'token' in st.session_state:
     Upload a CSV file with attendee postcodes, configure your cost and emission parameters, and get the top location recommendations for hosting your event.
     """)
 
+    settings = load_settings()
+
     # Sidebar for settings and inputs
     st.sidebar.header("⚙️ Settings")
 
-    api_key = st.sidebar.text_input("Google API Key", type="password")
+    api_key = st.sidebar.text_input("Google API Key", type="password", value=settings.get('api_key', ''))
 
     st.sidebar.markdown("**💸 Budget**")
-    budget_type = st.sidebar.radio("", ["Total Budget for the Event", "Average Budget per Attendee"])
+    budget_type = st.sidebar.radio("", ["Total Budget for the Event", "Average Budget per Attendee"], index=["Total Budget for the Event", "Average Budget per Attendee"].index(settings.get('budget_type', "Total Budget for the Event")))
 
     if budget_type == "Total Budget for the Event":
-        budget_cost = st.sidebar.number_input("Total Budget for Costs (£)", value=1000)
-        budget_time = st.sidebar.number_input("Total Budget for Time (minutes)", value=120)
-        budget_emissions = st.sidebar.number_input("Total Budget for Emissions (kg CO2)", value=200)
+        budget_cost = st.sidebar.number_input("Total Budget for Costs (£)", value=float(settings.get('budget_cost', 1000)))
+        budget_time = st.sidebar.number_input("Total Budget for Time (minutes)", value=float(settings.get('budget_time', 120)))
+        budget_emissions = st.sidebar.number_input("Total Budget for Emissions (kg CO2)", value=float(settings.get('budget_emissions', 200)))
     else:
-        budget_cost = st.sidebar.number_input("Average Budget for Costs per Attendee (£)", value=100)
-        budget_time = st.sidebar.number_input("Average Budget for Time per Attendee (minutes)", value=15)
-        budget_emissions = st.sidebar.number_input("Average Budget for Emissions per Attendee (kg CO2)", value=20)
+        budget_cost = st.sidebar.number_input("Average Budget for Costs per Attendee (£)", value=float(settings.get('budget_cost', 100)))
+        budget_time = st.sidebar.number_input("Average Budget for Time per Attendee (minutes)", value=float(settings.get('budget_time', 15)))
+        budget_emissions = st.sidebar.number_input("Average Budget for Emissions per Attendee (kg CO2)", value=float(settings.get('budget_emissions', 20)))
 
     # Cost and Emissions Lookup Table for Different Travel Modes
     st.sidebar.subheader("💡 Cost and Emissions Lookup Table")
-    cost_per_km_car = st.sidebar.number_input("Cost per km by Car (£)", value=0.5)
-    emission_per_km_car = st.sidebar.number_input("Emissions per km by Car (kg CO2)", value=0.2)
-    cost_per_km_train = st.sidebar.number_input("Cost per km by Train (£)", value=0.3)
-    emission_per_km_train = st.sidebar.number_input("Emissions per km by Train (kg CO2)", value=0.1)
+    cost_per_km_car = st.sidebar.number_input("Cost per km by Car (£)", value=float(settings.get('cost_per_km_car', 0.5)))
+    emission_per_km_car = st.sidebar.number_input("Emissions per km by Car (kg CO2)", value=float(settings.get('emission_per_km_car', 0.2)))
+    cost_per_km_train = st.sidebar.number_input("Cost per km by Train (£)", value=float(settings.get('cost_per_km_train', 0.3)))
+    emission_per_km_train = st.sidebar.number_input("Emissions per km by Train (kg CO2)", value=float(settings.get('emission_per_km_train', 0.1)))
 
     # Potential Base Locations Input
     st.sidebar.subheader("📍 Potential Base Locations")
-    base_locations = st.sidebar.text_area("Enter base locations (one per line)")
+    base_locations = st.sidebar.text_area("Enter base locations (one per line)", value=settings.get('base_locations', ''))
+
+    # Save settings to cookies
+    save_settings({
+        'api_key': api_key,
+        'budget_type': budget_type,
+        'budget_cost': budget_cost,
+        'budget_time': budget_time,
+        'budget_emissions': budget_emissions,
+        'cost_per_km_car': cost_per_km_car,
+        'emission_per_km_car': emission_per_km_car,
+        'cost_per_km_train': cost_per_km_train,
+        'emission_per_km_train': emission_per_km_train,
+        'base_locations': base_locations
+    })
 
     # Upload Attendee Postcodes
     st.subheader("Upload Attendee Postcodes CSV")
@@ -330,18 +384,6 @@ if 'token' in st.session_state:
     # Load current usage data
     usage_data = load_usage_data()
 
-    # Using Streamlit's session state to preserve recommendations and view type
-    if "recommendations" not in st.session_state:
-        st.session_state.recommendations = None
-    if "num_attendees" not in st.session_state:
-        st.session_state.num_attendees = None
-    if "best_emission_location" not in st.session_state:
-        st.session_state.best_emission_location = None
-    if "lat_lng_mapping" not in st.session_state:
-        st.session_state.lat_lng_mapping = None
-    if "budget_type" not in st.session_state:
-        st.session_state.budget_type = budget_type
-
     if st.button("Generate Recommendations"):
         if not api_key:
             st.error("Please enter your Google API Key in the settings.")
@@ -357,12 +399,6 @@ if 'token' in st.session_state:
             end_time = time.time()
             processing_time = end_time - start_time
             
-            st.session_state.recommendations = recommendations
-            st.session_state.num_attendees = num_attendees
-            st.session_state.best_emission_location = best_emission_location
-            st.session_state.lat_lng_mapping = lat_lng_mapping
-            st.session_state.budget_type = budget_type
-
             st.subheader("Top 3 Recommended Locations")
             display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type, best_emission_location, lat_lng_mapping)
 
@@ -384,20 +420,6 @@ if 'token' in st.session_state:
     st.sidebar.markdown(f"**Total Attendees Processed:** {usage_data['total_attendees']}")
     st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted} minutes")
     st.sidebar.markdown(f"**Last Processing Time:** {last_processing_time_formatted} minutes")
-
-    # Check if recommendations are already present in session state
-    if st.session_state.recommendations:
-        st.subheader("Top 3 Recommended Locations")
-        display_recommendations_and_charts(
-            st.session_state.recommendations,
-            st.session_state.num_attendees,
-            budget_cost,
-            budget_time,
-            budget_emissions,
-            st.session_state.budget_type,
-            st.session_state.best_emission_location,
-            st.session_state.lat_lng_mapping
-        )
 
 else:
     authorization_url, state = oauth.create_authorization_url(authorize_url, scope='openid email profile')
