@@ -8,6 +8,20 @@ import os
 import tempfile
 import json
 import matplotlib.pyplot as plt
+import base64
+
+# Load logo
+logo_path = "/mnt/data/Zero 2.png"
+logo = base64.b64encode(open(logo_path, "rb").read()).decode()
+st.markdown(f"""
+    <style>
+    .logo {{
+        width: 150px;
+        margin-bottom: 20px;
+    }}
+    </style>
+    <img src="data:image/png;base64,{logo}" class="logo">
+""", unsafe_allow_html=True)
 
 st.title("Event Location Planner")
 
@@ -63,12 +77,13 @@ def validate_location(api_key, location):
         result = gmaps.geocode(location)
         if result:
             formatted_address = result[0]['formatted_address']
-            return formatted_address
+            lat_lng = result[0]['geometry']['location']
+            return formatted_address, lat_lng
         else:
-            return None
+            return None, None
     except Exception as e:
         st.error(f"Error validating location {location}: {e}")
-        return None
+        return None, None
 
 # Function to calculate distances using Google Routes API
 def calculate_distances(api_key, origins, destinations, travel_mode):
@@ -116,7 +131,7 @@ def choose_travel_mode(api_key, origin, destination, cost_per_km_car, emission_p
 # Function to generate recommendations
 def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train, budget_cost, budget_time, budget_emissions, budget_type):
     origins = df['postcode'].tolist()
-    valid_origins = [validate_location(api_key, origin) for origin in origins]
+    valid_origins = [validate_location(api_key, origin)[0] for origin in origins]
     valid_origins = [origin for origin in valid_origins if origin is not None]
     num_attendees = len(valid_origins)
     
@@ -126,10 +141,11 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
     else:
         destinations = base_locations.split('\n')
     
-    valid_destinations = [validate_location(api_key, destination) for destination in destinations]
+    valid_destinations = [validate_location(api_key, destination)[0] for destination in destinations]
     valid_destinations = [destination for destination in valid_destinations if destination is not None]
     
     results = []
+    lat_lng_mapping = {}
     for location in valid_destinations:
         total_cost = 0
         total_emissions = 0
@@ -166,6 +182,8 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
         
         total_time_hours, total_time_minutes = divmod(total_time, 60)
         
+        lat_lng_mapping[location] = validate_location(api_key, location)[1]
+        
         results.append({
             "Location": location.split(",")[0],  # Extracting city name
             "Total Cost (£)": int(total_cost),
@@ -177,13 +195,19 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
         })
     
     results = sorted(results, key=lambda x: (x["Total Cost (£)"], x["Total Emissions (kg CO2)"]))
-    return results[:3], num_attendees
+    best_emission_location = min(results, key=lambda x: x["Total Emissions (kg CO2)"])
+    return results[:3], num_attendees, best_emission_location, lat_lng_mapping
 
-def display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type):
+def display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type, best_emission_location, lat_lng_mapping, view_type):
     df_recommendations = pd.DataFrame(recommendations)
     df_recommendations.index = df_recommendations.index + 1  # Make index start from 1
-
-    st.write(df_recommendations)
+    
+    df_recommendations["Location"] = df_recommendations.apply(
+        lambda row: f"{row['Location']} 🌿" if row['Location'] == best_emission_location["Location"] else row['Location'],
+        axis=1
+    )
+    
+    st.dataframe(df_recommendations)
 
     # Additional details about the number of attendees
     st.markdown(f"**Number of Attendees Processed: {num_attendees}**")
@@ -191,59 +215,55 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
 
     # Create charts
     locations = [rec['Location'] for rec in recommendations]
-    costs = [rec['Avg Cost per Attendee (£)'] if budget_type == "Average Budget per Attendee" else rec['Total Cost (£)'] for rec in recommendations]
-    emissions = [rec['Avg Emissions per Attendee (kg CO2)'] if budget_type == "Average Budget per Attendee" else rec['Total Emissions (kg CO2)'] for rec in recommendations]
-    times = [int(rec['Avg Time per Attendee'].split('h')[0]) * 60 + int(rec['Avg Time per Attendee'].split('h')[1].replace('m', '')) if budget_type == "Average Budget per Attendee" else float(rec['Total Time'].split('h')[0]) * 60 + float(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
-
-    if budget_type == "Total Budget for the Event":
+    if view_type == "Total":
+        costs = [rec['Total Cost (£)'] for rec in recommendations]
+        emissions = [rec['Total Emissions (kg CO2)'] for rec in recommendations]
+        times = [int(rec['Total Time'].split('h')[0]) * 60 + int(rec['Total Time'].split('h')[1].replace('m', '')) for rec in recommendations]
         budget_cost_label = "Total Cost (£)"
         budget_time_label = "Total Time (minutes)"
         budget_emissions_label = "Total Emissions (kg CO2)"
     else:
+        costs = [rec['Avg Cost per Attendee (£)'] for rec in recommendations]
+        emissions = [rec['Avg Emissions per Attendee (kg CO2)'] for rec in recommendations]
+        times = [int(rec['Avg Time per Attendee'].split('h')[0]) * 60 + int(rec['Avg Time per Attendee'].split('h')[1].replace('m', '')) for rec in recommendations]
         budget_cost_label = "Avg Cost per Attendee (£)"
         budget_time_label = "Avg Time per Attendee (minutes)"
         budget_emissions_label = "Avg Emissions per Attendee (kg CO2)"
+    
+    fig, ax = plt.subplots()
+    ax.bar(locations, costs, color='skyblue', label=budget_cost_label)
+    ax.axhline(y=budget_cost, color='red', linestyle='--', label=f'Budgeted {budget_cost_label}')
+    ax.set_ylabel(budget_cost_label)
+    ax.set_title(f'{budget_cost_label} vs Budget')
+    ax.legend()
+    fig.tight_layout()
+    st.pyplot(fig)
 
-    with tempfile.TemporaryDirectory() as temp_dir:
-        fig, ax = plt.subplots()
-        ax.bar(locations, costs, color='blue', label=budget_cost_label)
-        ax.axhline(y=budget_cost, color='red', linestyle='--', label=f'Budgeted {budget_cost_label}')
-        ax.set_ylabel(budget_cost_label)
-        ax.set_title(f'{budget_cost_label} vs Budget')
-        ax.legend()
-        fig.tight_layout()
-        chart1_path = os.path.join(temp_dir, "chart1.png")
-        fig.savefig(chart1_path)
-        st.pyplot(fig)
+    fig, ax = plt.subplots()
+    ax.bar(locations, emissions, color='lightgreen', label=budget_emissions_label)
+    ax.axhline(y=budget_emissions, color='red', linestyle='--', label=f'Budgeted {budget_emissions_label}')
+    ax.set_ylabel(budget_emissions_label)
+    ax.set_title(f'{budget_emissions_label} vs Budget')
+    ax.legend()
+    fig.tight_layout()
+    st.pyplot(fig)
 
-        fig, ax = plt.subplots()
-        ax.bar(locations, emissions, color='green', label=budget_emissions_label)
-        ax.axhline(y=budget_emissions, color='red', linestyle='--', label=f'Budgeted {budget_emissions_label}')
-        ax.set_ylabel(budget_emissions_label)
-        ax.set_title(f'{budget_emissions_label} vs Budget')
-        ax.legend()
-        fig.tight_layout()
-        chart2_path = os.path.join(temp_dir, "chart2.png")
-        fig.savefig(chart2_path)
-        st.pyplot(fig)
-
-        fig, ax = plt.subplots()
-        ax.bar(locations, times, color='purple', label=budget_time_label)
-        ax.axhline(y=budget_time, color='red', linestyle='--', label=f'Budgeted {budget_time_label}')
-        ax.set_ylabel(budget_time_label)
-        ax.set_title(f'{budget_time_label} vs Budget')
-        ax.legend()
-        fig.tight_layout()
-        chart3_path = os.path.join(temp_dir, "chart3.png")
-        fig.savefig(chart3_path)
-        st.pyplot(fig)
+    fig, ax = plt.subplots()
+    ax.bar(locations, times, color='lightcoral', label=budget_time_label)
+    ax.axhline(y=budget_time, color='red', linestyle='--', label=f'Budgeted {budget_time_label}')
+    ax.set_ylabel(budget_time_label)
+    ax.set_title(f'{budget_time_label} vs Budget')
+    ax.legend()
+    fig.tight_layout()
+    st.pyplot(fig)
 
     # Adding booking buttons
     st.subheader("Booking Links")
     for rec in recommendations:
-        location = rec['Location']
-        booking_url = f"https://booking.meetingpackage.com/wlsearch?query={location},%20UK&delegates=10&duration=8&index_id=venues_index&pt=53.4807593,-2.2426305"
-        st.markdown(f"[Book Recommendation Venue in {location}]({booking_url})")
+        location = rec['Location'].replace(" 🌿", "")
+        lat_lng = lat_lng_mapping[location]
+        booking_url = f"https://booking.meetingpackage.com/wlsearch?query={location},%20UK&delegates=10&duration=8&index_id=venues_index&pt={lat_lng['lat']},{lat_lng['lng']}"
+        st.markdown(f"[Book an Event Venue in {location}]({booking_url})")
 
     # Summary of calculations and assumptions
     st.subheader("Summary of Recommendations Calculation")
@@ -294,13 +314,14 @@ if st.button("Generate Recommendations"):
     else:
         start_time = time.time()
         with st.spinner('Recommendation Engine at work ⏳🚂'):
-            recommendations, num_attendees = generate_recommendations(df, base_locations, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train, budget_cost, budget_time, budget_emissions, budget_type)
+            recommendations, num_attendees, best_emission_location, lat_lng_mapping = generate_recommendations(df, base_locations, cost_per_km_car, emission_per_km_car, cost_per_km_train, emission_per_km_train, budget_cost, budget_time, budget_emissions, budget_type)
             time.sleep(2)  # Simulate processing time
         end_time = time.time()
         processing_time = end_time - start_time
         
         st.subheader("Top 3 Recommended Locations")
-        display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type)
+        view_type = st.radio("Select View Type", ["Total", "Average"], index=0)
+        display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type, best_emission_location, lat_lng_mapping, view_type)
 
         # Update and save usage data
         usage_data["usage_count"] += 1
