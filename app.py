@@ -27,7 +27,7 @@ with open('config.yaml') as file:
 # OAuth configuration
 client_id = '389176055982-anmjh9i1ev0jb922bovs7o4qu6is8kpm.apps.googleusercontent.com'
 client_secret = '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'
-redirect_uri = 'https://events-ulozygjxpzydwoqs2dczf8.streamlit.app'
+redirect_uri = 'https://events-ulozygjxpzydwoqs2dczf8.streamlit.app'  # Update this to your correct redirect URI
 authorize_url = 'https://accounts.google.com/o/oauth2/auth'
 token_url = 'https://accounts.google.com/o/oauth2/token'
 userinfo_url = 'https://www.googleapis.com/oauth2/v1/userinfo'
@@ -36,14 +36,15 @@ userinfo_url = 'https://www.googleapis.com/oauth2/v1/userinfo'
 oauth = OAuth2Session(client_id, client_secret, redirect_uri=redirect_uri)
 
 if 'token' not in st.session_state:
-    # Redirect user to Google for authorization
     authorization_url, state = oauth.create_authorization_url(authorize_url, scope='openid email profile')
     st.session_state['state'] = state
     st.write(f"[Login with Google]({authorization_url})")
 
 # After redirect back from Google
-if 'token' not in st.session_state and 'code' in st.experimental_get_query_params():
-    token = oauth.fetch_token(token_url, authorization_response=st.experimental_get_query_params(), code=st.experimental_get_query_params()['code'])
+query_params = st.experimental_get_query_params()
+if 'token' not in st.session_state and 'code' in query_params:
+    code = query_params['code'][0]
+    token = oauth.fetch_token(token_url, authorization_response=request.url, code=code)
     st.session_state['token'] = token
 
 # If logged in
@@ -221,7 +222,7 @@ if 'token' in st.session_state:
                 "Avg Time per Attendee": f"{int(avg_time_per_attendee // 60)}h {int(avg_time_per_attendee % 60)}m"
             })
         
-        results = sorted(results, key=lambda x: (x["Total Cost (£)"], x["Total Emissions (kg CO2)"]))
+        results are sorted(results, key=lambda x: (x["Total Cost (£)"], x["Total Emissions (kg CO2)"]))
         best_emission_location = min(results, key=lambda x: x["Total Emissions (kg CO2)"])
         return results[:3], num_attendees, best_emission_location, lat_lng_mapping
 
