@@ -52,6 +52,9 @@ emission_per_km_train = st.sidebar.number_input("Emissions per km by Train (kg C
 st.sidebar.subheader("📍 Potential Base Locations")
 base_locations = st.sidebar.text_area("Enter base locations (one per line)")
 
+# View type selection
+view_type = st.sidebar.radio("Select View Type", ["Total", "Average"], index=0)
+
 # Upload Attendee Postcodes
 st.subheader("Upload Attendee Postcodes CSV")
 uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
@@ -330,8 +333,6 @@ if st.button("Generate Recommendations"):
         st.session_state.lat_lng_mapping = lat_lng_mapping
 
         st.subheader("Top 3 Recommended Locations")
-        view_type = st.radio("Select View Type", ["Total", "Average"], index=0)
-        st.session_state.view_type = view_type
         display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type, best_emission_location, lat_lng_mapping, view_type)
 
         # Update and save usage data
@@ -358,6 +359,4 @@ st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted} minu
 # Check if recommendations are already present in session state
 if st.session_state.recommendations:
     st.subheader("Top 3 Recommended Locations")
-    view_type = st.radio("Select View Type", ["Total", "Average"], index=0)
-    st.session_state.view_type = view_type
-    display_recommendations_and_charts(st.session_state.recommendations, st.session_state.num_attendees, budget_cost, budget_time, budget_emissions, budget_type, st.session_state.best_emission_location, st.session_state.lat_lng_mapping, view_type)
+    display_recommendations_and_charts(st.session_state.recommendations, st.session_state.num_attendees, budget_cost, budget_time, budget_emissions, budget_type, st.session_state.best_emission_location, st.session_state.lat_lng_mapping, st.session_state.view_type)
