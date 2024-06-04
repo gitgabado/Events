@@ -224,7 +224,6 @@ if 'token' in st.session_state:
         best_emission_location = min(results, key=lambda x: x["Total Emissions (kg CO2)"])
         return results[:3], num_attendees, best_emission_location, lat_l
             lat_lng_mapping[location.split(",")[0]] = validate_location(api_key, location)[1]
-            
             results.append({
                 "Location": location.split(",")[0],  # Extracting city name
                 "Total Cost (£)": int(total_cost),
