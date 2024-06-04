@@ -342,19 +342,17 @@ if st.button("Generate Recommendations"):
         usage_data["last_processing_time"] = processing_time
         save_usage_data(usage_data)
 
-        # Display the last processing time
-        last_processing_time_formatted = time.strftime("%M:%S", time.gmtime(processing_time))
-        st.sidebar.markdown(f"**Last Processing Time:** {last_processing_time_formatted} minutes")
-
 # Display cumulative usage data in the sidebar
 average_time = usage_data["total_time"] / usage_data["usage_count"] if usage_data["usage_count"] > 0 else 0
 average_time_formatted = time.strftime("%M:%S", time.gmtime(average_time))
+last_processing_time_formatted = time.strftime("%M:%S", time.gmtime(usage_data["last_processing_time"]))
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("📊 Usage Statistics")
 st.sidebar.markdown(f"**Total Events Planned:** {usage_data['usage_count']}")
 st.sidebar.markdown(f"**Total Attendees Processed:** {usage_data['total_attendees']}")
 st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted} minutes")
+st.sidebar.markdown(f"**Last Processing Time:** {last_processing_time_formatted} minutes")
 
 # Check if recommendations are already present in session state
 if st.session_state.recommendations:
