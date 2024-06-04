@@ -51,6 +51,11 @@ if 'token' in st.session_state:
     user_info = oauth.get(userinfo_url).json()
     st.success(f"Welcome {user_info['name']}!")
 
+    # Log off button
+    if st.button("Log Off"):
+        del st.session_state['token']
+        st.experimental_rerun()
+
     st.subheader("Plan your events efficiently with optimal locations 🌍🎉")
     st.markdown("""
     This tool helps you to find the best locations for your events based on travel time, cost, and emissions. 
@@ -210,20 +215,6 @@ if 'token' in st.session_state:
             
             lat_lng_mapping[location.split(",")[0]] = validate_location(api_key, location)[1]
             
-            results.append({
-                "Location": location.split(",")[0],  # Extracting city name
-                "Total Cost (£)": int(total_cost),
-                "Total Emissions (kg CO2)": int(total_emissions),
-                "Total Time": f"{int(total_time_hours)}h {int(total_time_minutes)}m",
-                "Avg Cost per Attendee (£)": int(avg_cost_per_attendee),
-                "Avg Emissions per Attendee (kg CO2)": int(avg_emissions_per_attendee),
-                "Avg Time per Attendee": f"{int(avg_time_per_attendee // 60)}h {int(avg_time_per_attendee % 60)}m"
-            })
-        
-        results = sorted(results, key=lambda x: (x["Total Cost (£)"], x["Total Emissions (kg CO2)"]))
-        best_emission_location = min(results, key=lambda x: x["Total Emissions (kg CO2)"])
-        return results[:3], num_attendees, best_emission_location, lat_l
-            lat_lng_mapping[location.split(",")[0]] = validate_location(api_key, location)[1]
             results.append({
                 "Location": location.split(",")[0],  # Extracting city name
                 "Total Cost (£)": int(total_cost),
