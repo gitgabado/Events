@@ -1,11 +1,8 @@
 import streamlit as st
 import pandas as pd
 import googlemaps
-import plotly.graph_objs as go
-from io import StringIO
 import time
 import os
-import tempfile
 import json
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -349,8 +346,8 @@ st.sidebar.markdown("---")
 st.sidebar.subheader("📊 Usage Statistics")
 st.sidebar.markdown(f"**Total Events Planned:** {usage_data['usage_count']}")
 st.sidebar.markdown(f"**Total Attendees Processed:** {usage_data['total_attendees']}")
-st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted} minutes")
-st.sidebar.markdown(f"**Last Processing Time:** {last_processing_time_formatted} minutes")
+st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted}")
+st.sidebar.markdown(f"**Last Processing Time:** {last_processing_time_formatted}")
 
 # Check if recommendations are already present in session state
 if st.session_state.recommendations:
