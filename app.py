@@ -381,7 +381,7 @@ if 'token' in st.session_state:
 
     # Function to save usage data
     def save_usage_data(data):
-        with open(usage_count_file, "w") as f):
+        with open(usage_count_file, "w") as (f):
             json.dump(data, f)
 
     # Load current usage data
