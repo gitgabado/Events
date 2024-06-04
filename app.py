@@ -288,7 +288,7 @@ def load_usage_data():
 
 # Function to save usage data
 def save_usage_data(data):
-    with open(usage_count_file, "w") as f:
+    with open(usage_count_file, "w") as f):
         json.dump(data, f)
 
 # Load current usage data
@@ -346,10 +346,25 @@ st.sidebar.markdown("---")
 st.sidebar.subheader("📊 Usage Statistics")
 st.sidebar.markdown(f"**Total Events Planned:** {usage_data['usage_count']}")
 st.sidebar.markdown(f"**Total Attendees Processed:** {usage_data['total_attendees']}")
-st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted}")
-st.sidebar.markdown(f"**Last Processing Time:** {last_processing_time_formatted}")
+st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted} minutes")
+st.sidebar.markdown(f"**Last Processing Time:** {last_processing_time_formatted} minutes")
 
 # Check if recommendations are already present in session state
-if st.session_state.recommendations:
+if st.session_state.recommendations and not st.button("Generate Recommendations"):
     st.subheader("Top 3 Recommended Locations")
-    display_recommendations_and_charts(st.session_state.recommendations, st.session_state.num_attendees, budget_cost, budget_time, budget_emissions, st.session_state.budget_type, st.session_state.best_emission_location, st.session_state.lat_lng_mapping)
+    display_recommendations_and_charts(st.session_state.recommendations, st.session_state.num_attendees, budget_cost, budget_time, budget_emissions, st.session
+    state.budget_type, st.session_state.best_emission_location, st.session_state.lat_lng_mapping)
+
+# Ensure charts are correctly displayed based on the budget type
+if st.session_state.recommendations and not st.button("Generate Recommendations"):
+    st.subheader("Top 3 Recommended Locations")
+    display_recommendations_and_charts(
+        st.session_state.recommendations,
+        st.session_state.num_attendees,
+        budget_cost,
+        budget_time,
+        budget_emissions,
+        st.session_state.budget_type,
+        st.session_state.best_emission_location,
+        st.session_state.lat_lng_mapping
+    )
