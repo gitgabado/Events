@@ -349,4 +349,17 @@ st.sidebar.markdown(f"**Total Attendees Processed:** {usage_data['total_attendee
 st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted} minutes")
 st.sidebar.markdown(f"**Last Processing Time:** {last_processing_time_formatted} minutes")
 
-
+# Check if recommendations are already present in session state
+if st.session_state.recommendations and not st.session_state.get('recommendation_displayed', False):
+    st.session_state.recommendation_displayed = True
+    st.subheader("Top 3 Recommended Locations")
+    display_recommendations_and_charts(
+        st.session_state.recommendations,
+        st.session_state.num_attendees,
+        budget_cost,
+        budget_time,
+        budget_emissions,
+        st.session_state.budget_type,
+        st.session_state.best_emission_location,
+        st.session_state.lat_lng_mapping
+    )
