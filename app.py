@@ -31,10 +31,10 @@ userinfo_url = 'https://www.googleapis.com/oauth2/v1/userinfo'
 # Create an OAuth2 session
 oauth = OAuth2Session(client_id, client_secret, redirect_uri=redirect_uri)
 
-if 'token' not in st.session_state:
-    authorization_url, state = oauth.create_authorization_url(authorize_url, scope='openid email profile')
-    st.session_state['state'] = state
-    st.write(f"[Login with Google]({authorization_url})")
+# Check if user wants to log out
+if st.sidebar.button("Log Off"):
+    st.session_state.clear()
+    st.experimental_rerun()
 
 # After redirect back from Google
 query_params = st.experimental_get_query_params()
@@ -50,11 +50,6 @@ if 'token' in st.session_state:
     oauth = OAuth2Session(client_id, client_secret, token=st.session_state['token'])
     user_info = oauth.get(userinfo_url).json()
     st.success(f"Welcome {user_info['name']}!")
-
-    # Log off button
-    if st.button("Log Off"):
-        del st.session_state['token']
-        st.experimental_rerun()
 
     st.subheader("Plan your events efficiently with optimal locations 🌍🎉")
     st.markdown("""
