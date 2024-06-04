@@ -374,7 +374,7 @@ if 'token' in st.session_state:
     # Function to load usage data
     def load_usage_data():
         if os.path.exists(usage_count_file):
-            with open(usage_count_file, "r") as f):
+            with open(usage_count_file, "r") as (f):
                 return json.load(f)
         else:
             return {"usage_count": 0, "total_attendees": 0, "total_time": 0, "last_processing_time": 0}
