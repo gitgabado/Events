@@ -8,20 +8,13 @@ import os
 import tempfile
 import json
 import matplotlib.pyplot as plt
-import base64
+from PIL import Image
 
-# Load logo
-logo_path = "logo.png"
-logo = base64.b64encode(open(logo_path, "rb").read()).decode()
-st.markdown(f"""
-    <style>
-    .logo {{
-        width: 150px;
-        margin-bottom: 20px;
-    }}
-    </style>
-    <img src="data:image/png;base64,{logo}" class="logo">
-""", unsafe_allow_html=True)
+# Load logo from the local directory
+logo_path = "logo.png"  # Ensure this path is correct relative to the script location
+logo = Image.open(logo_path)
+
+st.image(logo, width=150)
 
 st.title("Event Location Planner")
 
@@ -182,7 +175,7 @@ def generate_recommendations(df, base_locations, cost_per_km_car, emission_per_k
         
         total_time_hours, total_time_minutes = divmod(total_time, 60)
         
-        lat_lng_mapping[location] = validate_location(api_key, location)[1]
+        lat_lng_mapping[location.split(",")[0]] = validate_location(api_key, location)[1]
         
         results.append({
             "Location": location.split(",")[0],  # Extracting city name
@@ -214,7 +207,7 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
     st.markdown("This number reflects the total attendees considered to provide these location recommendations based on the provided postcodes.")
 
     # Create charts
-    locations = [rec['Location'] for rec in recommendations]
+    locations = [rec['Location'].replace(" 🌿", "") for rec in recommendations]
     if view_type == "Total":
         costs = [rec['Total Cost (£)'] for rec in recommendations]
         emissions = [rec['Total Emissions (kg CO2)'] for rec in recommendations]
@@ -304,6 +297,18 @@ def save_usage_data(data):
 # Load current usage data
 usage_data = load_usage_data()
 
+# Using Streamlit's session state to preserve recommendations and view type
+if "recommendations" not in st.session_state:
+    st.session_state.recommendations = None
+if "num_attendees" not in st.session_state:
+    st.session_state.num_attendees = None
+if "best_emission_location" not in st.session_state:
+    st.session_state.best_emission_location = None
+if "lat_lng_mapping" not in st.session_state:
+    st.session_state.lat_lng_mapping = None
+if "view_type" not in st.session_state:
+    st.session_state.view_type = "Total"
+
 if st.button("Generate Recommendations"):
     if not api_key:
         st.error("Please enter your Google API Key in the settings.")
@@ -319,8 +324,14 @@ if st.button("Generate Recommendations"):
         end_time = time.time()
         processing_time = end_time - start_time
         
+        st.session_state.recommendations = recommendations
+        st.session_state.num_attendees = num_attendees
+        st.session_state.best_emission_location = best_emission_location
+        st.session_state.lat_lng_mapping = lat_lng_mapping
+
         st.subheader("Top 3 Recommended Locations")
         view_type = st.radio("Select View Type", ["Total", "Average"], index=0)
+        st.session_state.view_type = view_type
         display_recommendations_and_charts(recommendations, num_attendees, budget_cost, budget_time, budget_emissions, budget_type, best_emission_location, lat_lng_mapping, view_type)
 
         # Update and save usage data
@@ -343,3 +354,10 @@ st.sidebar.subheader("📊 Usage Statistics")
 st.sidebar.markdown(f"**Total Events Planned:** {usage_data['usage_count']}")
 st.sidebar.markdown(f"**Total Attendees Processed:** {usage_data['total_attendees']}")
 st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted} minutes")
+
+# Check if recommendations are already present in session state
+if st.session_state.recommendations:
+    st.subheader("Top 3 Recommended Locations")
+    view_type = st.radio("Select View Type", ["Total", "Average"], index=0)
+    st.session_state.view_type = view_type
+    display_recommendations_and_charts(st.session_state.recommendations, st.session_state.num_attendees, budget_cost, budget_time, budget_emissions, budget_type, st.session_state.best_emission_location, st.session_state.lat_lng_mapping, view_type)
