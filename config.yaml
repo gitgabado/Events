@@ -1,17 +1,11 @@
 credentials:
-  users:
-    - email: your-email@gmail.com
-      name: Your Name
-      password: hashed_password
-    - email: another-email@gmail.com
-      name: Another Name
-      password: another_hashed_password
+  usernames:
+    admin:
+      email: alapmehta2010@gmail.com
+      name: Admin User
+      password: 'Premilain901'  # Replace with your hashed admin password
 
-cookie:
-  expiry_days: 30
-  key: some_key
-  name: some_cookie_name
 
 preauthorized:
   emails:
-    - preauthorized@example.com
+    - alapmehta2010@gmail.com
