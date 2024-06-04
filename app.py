@@ -238,6 +238,13 @@ def display_recommendations_and_charts(recommendations, num_attendees, budget_co
         fig.savefig(chart3_path)
         st.pyplot(fig)
 
+    # Adding booking buttons
+    st.subheader("Booking Links")
+    for rec in recommendations:
+        location = rec['Location']
+        booking_url = f"https://booking.meetingpackage.com/wlsearch?query={location},%20UK&delegates=10&duration=8&index_id=venues_index&pt=53.4807593,-2.2426305"
+        st.markdown(f"[Book Recommendation Venue in {location}]({booking_url})")
+
     # Summary of calculations and assumptions
     st.subheader("Summary of Recommendations Calculation")
     st.markdown("""
@@ -315,5 +322,3 @@ st.sidebar.subheader("📊 Usage Statistics")
 st.sidebar.markdown(f"**Total Events Planned:** {usage_data['usage_count']}")
 st.sidebar.markdown(f"**Total Attendees Processed:** {usage_data['total_attendees']}")
 st.sidebar.markdown(f"**Average Processing Time:** {average_time_formatted} minutes")
-
-
